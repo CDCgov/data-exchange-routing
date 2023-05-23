@@ -1,0 +1,12 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sites_funcappblobcreation_name": {
+            "value": null
+        },
+        "serverfarms_ASP_cmods4t13eus_8fe4_externalid": {
+            "value": null
+        }
+    }
+}
