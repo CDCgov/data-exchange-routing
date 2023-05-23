@@ -1,0 +1,28 @@
+{
+    "name": "Tumbling_param",
+    "properties": {
+        "annotations": [],
+        "runtimeState": "Stopped",
+        "pipeline": {
+            "pipelineReference": {
+                "referenceName": "PL_Data_Transfer",
+                "type": "PipelineReference"
+            },
+            "parameters": {
+                "Param_1": "@trigger().outputs.body.fileName"
+            }
+        },
+        "type": "TumblingWindowTrigger",
+        "typeProperties": {
+            "frequency": "Minute",
+            "interval": 15,
+            "startTime": "2023-05-17T15:36:00Z",
+            "delay": "00:00:00",
+            "maxConcurrency": 50,
+            "retryPolicy": {
+                "intervalInSeconds": 30
+            },
+            "dependsOn": []
+        }
+    }
+}
