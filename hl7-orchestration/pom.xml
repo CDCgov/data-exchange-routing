@@ -23,7 +23,7 @@
         <maven.compiler.target>11</maven.compiler.target>
         <azevhub.version>5.15.0</azevhub.version>
         <stagingDirectory>${project.build.directory}/azure-functions/${functionAppName}</stagingDirectory>
-        <functionAppName>afs-dex-hl7v2-20230524131054935</functionAppName>
+        <functionAppName>afs-poc-20230524131054935</functionAppName>
         <functionAppRegion>centralus</functionAppRegion>
         <functionResourceGroup>java-functions-group</functionResourceGroup>
         <slf4j.version>2.0.7</slf4j.version>
