@@ -30,8 +30,8 @@ The token has to answer the following questions:
  */
 
 data class HL7Token(
-        @SerializedName("fileType") val fileType: String?,
-        @SerializedName("fileName") val fileName: String?,
+        @SerializedName("fileType") val fileType: String,
+        @SerializedName("fileName") val fileName: String,
         @SerializedName("pipelineProcess") val pipelineProcess: List<FunctionStep>     
 )
 
