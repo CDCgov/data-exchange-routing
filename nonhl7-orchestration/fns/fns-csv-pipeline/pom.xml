@@ -52,6 +52,13 @@
             <artifactId>azure-storage-blob</artifactId>
             <version>${azure.storage.blob.version}</version>
         </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>4.1.0</version>
+            <type>jar</type>
+            <scope>compile</scope>
+        </dependency>
 
         <!-- Needed for Azure to function correctly -->
         <dependency>
