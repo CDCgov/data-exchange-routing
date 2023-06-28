@@ -136,8 +136,8 @@ class FnRouter {
     }
 
     private fun pullRouterConfig(ingestMetadata:Map<String,String>, configList:List<RouterConfiguration>):RouterConfiguration?{
-        val ingestMessageType = ingestMetadata.get("messageType")
-        val ingestMessageVersion = ingestMetadata.get("messageVersion")
+        val ingestMessageType = ingestMetadata.get("messageType") ?: ""
+        val ingestMessageVersion = ingestMetadata.get("messageVersion") ?: ""
         for(config in configList){
             if(config.messageType==ingestMessageType && config.messageVersion==ingestMessageVersion){
                 return config
@@ -145,6 +145,7 @@ class FnRouter {
         }
 
         //if get to end, no config was found
+        //TODO do we want a way to handle matched Type but mismatched Version? What if they want all versions to be handled by same config?
         return null
     }
 }

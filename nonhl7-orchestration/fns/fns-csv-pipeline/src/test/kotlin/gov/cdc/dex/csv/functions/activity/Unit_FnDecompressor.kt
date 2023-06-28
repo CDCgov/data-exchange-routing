@@ -79,6 +79,36 @@ internal class Unit_FnDecompressor {
 
         Assertions.assertTrue(okFileNameList.isEmpty(), "some URLs not in messages $okFileNameList")
     }
+    
+    @Test
+    internal fun happyPath_bigZip(){
+        val inputUrl = moveToIngest("test-upload-big-zip.zip","happyPath_bigZip")
+        val input = ActivityInput(common=CommonInput("happyPath_bigZip", ActivityParams(executionId="happyPath_bigZip", originalFileUrl = inputUrl)))
+        val response = FnDecompressor().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(parentDir, "application/zip"))
+        Assertions.assertNull(response.updatedParams)
+        Assertions.assertNull(response.errorMessage)
+
+        val fanOut = response.fanOutParams
+        Assertions.assertNotNull(fanOut)
+        Assertions.assertEquals(3, fanOut!!.size, "Invalid number of fan out files")
+        System.out.println(fanOut)
+        
+        val okFileNameList = mutableListOf(
+            "processed/happyPath_bigZip/happyPath_bigZip/test-upload-big-zip-decompressed/test-upload-big-zip/test-upload-big-1.csv",
+            "processed/happyPath_bigZip/happyPath_bigZip/test-upload-big-zip-decompressed/test-upload-big-zip/test-upload-big-2.csv",
+            "processed/happyPath_bigZip/happyPath_bigZip/test-upload-big-zip-decompressed/test-upload-big-zip/test-upload-big-3.csv",
+        )
+
+        for(param in fanOut){
+            Assertions.assertEquals("ingest/happyPath_bigZip/test-upload-big-zip.zip", param.originalFileUrl)
+            val okFileName = param.currentFileUrl
+            Assertions.assertNotNull(okFileName)
+            Assertions.assertTrue(File(parentDir, okFileName).exists(), "file not in processed! $okFileName")
+            Assertions.assertTrue(okFileNameList.remove(okFileName), "bad processed URL, potentially a duplicate")
+        }
+
+        Assertions.assertTrue(okFileNameList.isEmpty(), "some URLs not in messages $okFileNameList")
+    }
 
     
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
