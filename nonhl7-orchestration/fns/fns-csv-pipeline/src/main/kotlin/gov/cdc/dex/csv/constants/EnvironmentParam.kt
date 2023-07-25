@@ -6,7 +6,9 @@ enum class EnvironmentParam(val paramKey:String){
     BASE_CONFIG_URL("BaseConfigUrl"),
     REDIS_CACHE_PASS("RedisCachePass"),
     REDIS_CACHE_PORT("RedisCachePort"),
-    REDIS_CACHE_URL("RedisCacheURL");
+    REDIS_CACHE_URL("RedisCacheURL"),
+    COSMOSDB_CONNECTION("CosmosDBConnection"),
+    COSMOSDB_KEY("CosmosDBKey");
 
     fun getSystemValue():String{
         val value = System.getenv(paramKey) 

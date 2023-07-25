@@ -5,6 +5,13 @@ import com.microsoft.azure.functions.annotation.FunctionName
 import com.microsoft.durabletask.Task
 import com.microsoft.durabletask.TaskOrchestrationContext
 import com.microsoft.durabletask.azurefunctions.DurableOrchestrationTrigger
+import com.azure.storage.queue.QueueClient
+import com.azure.storage.queue.QueueClientBuilder
+import com.azure.storage.queue.QueueServiceClient
+import com.azure.storage.queue.QueueServiceClientBuilder
+import com.azure.storage.queue.models.SendMessageResult
+
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
 import gov.cdc.dex.csv.dtos.ActivityInput
 import gov.cdc.dex.csv.dtos.ActivityOutput
@@ -14,6 +21,8 @@ import gov.cdc.dex.csv.dtos.RecursiveOrchestratorOutput
 import gov.cdc.dex.csv.dtos.RecursiveOrchestratorInput
 import gov.cdc.dex.csv.dtos.CommonInput
 import gov.cdc.dex.csv.dtos.ActivityParams
+import gov.cdc.dex.csv.dtos.ReportingEvent
+import gov.cdc.dex.csv.constants.EnvironmentParam
 
 import java.util.logging.Level
 
@@ -33,7 +42,7 @@ class FnOrchestrator {
             throw e
         }
         log(level=Level.INFO, msg="Started Orchestration with params $input", taskContext=taskContext, functionContext=functionContext)
-
+        sendReportEvent(input.initialParams.currentFileUrl,"0","Starting Analysis",taskContext,functionContext)
         //create input for initial recursive call
         val subInput = RecursiveOrchestratorInput(input, 0, "")
         val recursiveOutput = taskContext.callSubOrchestrator("DexCsvOrchestrator_Recursive", subInput, RecursiveOrchestratorOutput::class.java).await()
@@ -99,6 +108,10 @@ class FnOrchestrator {
             }else{
                 null
             }
+
+            //send Reporting Event
+            sendReportEvent(stepInput.common.params.currentFileUrl, stepNumber, errorMessage, taskContext, functionContext)
+
             if(errorMessage != null){
                 log(level=Level.SEVERE, msg="Step ${stepNumber} had error $errorMessage", taskContext=taskContext, functionContext=functionContext)
                 globalParams.errorMessage = errorMessage
@@ -201,5 +214,29 @@ class FnOrchestrator {
                 functionContext.logger.log(level, msg, thrown);
             }
         }
+    }
+
+    private fun sendReportEvent(
+        fileName    :String? = null,
+        stepNumber  :String? = null,
+        errorMessage:String? = null,
+        taskContext:TaskOrchestrationContext,
+        functionContext:ExecutionContext
+    ){
+        log(Level.INFO, "sending report event",null,taskContext,functionContext)
+        val cosmosDBConnectionString = EnvironmentParam.INGEST_BLOB_CONNECTION.getSystemValue()
+
+        val queueClient:QueueClient = QueueClientBuilder()
+            .connectionString(cosmosDBConnectionString)
+            .queueName("dexcsv-reportevents")
+            .buildClient();
+        log(Level.INFO, "queue client created", null, taskContext, functionContext)
+        val reportEvent = ReportingEvent(fileName,stepNumber,errorMessage)
+
+        val objectMapper = jacksonObjectMapper()
+
+        val result = queueClient.sendMessage(objectMapper.writeValueAsString(reportEvent))
+
+        log(Level.SEVERE, "event "+result.getMessageId()+" created in "+"dexcsv-reportevents",null,taskContext,functionContext)
     }
 }
