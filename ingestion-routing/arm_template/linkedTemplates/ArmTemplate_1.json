@@ -1,0 +1,99 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": "Data Factory name",
+            "defaultValue": "cmodt13adf"
+        },
+        "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "type": "string",
+            "defaultValue": "@trigger().outputs.body.fileName"
+        },
+        "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "type": "string",
+            "defaultValue": "ADLS_TO_ADLS"
+        },
+        "Other_Trigger_properties_typeProperties_scope": {
+            "type": "string",
+            "defaultValue": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc1"
+        },
+        "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "type": "string",
+            "defaultValue": "NA"
+        },
+        "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "type": "string",
+            "defaultValue": "AZ_SQL_TO_ADLS"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('factoryName'), '/Other_Trigger')]",
+            "type": "Microsoft.DataFactory/factories/triggers",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "runtimeState": "Started",
+                "pipelines": [
+                    {
+                        "pipelineReference": {
+                            "referenceName": "PL_ROUTING_MASTER",
+                            "type": "PipelineReference"
+                        },
+                        "parameters": {
+                            "TriggerDetails": "[parameters('Other_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails')]",
+                            "DataTransferType": "[parameters('Other_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType')]"
+                        }
+                    }
+                ],
+                "type": "BlobEventsTrigger",
+                "typeProperties": {
+                    "blobPathBeginsWith": "/input/blobs/Src",
+                    "ignoreEmptyBlobs": true,
+                    "scope": "[parameters('Other_Trigger_properties_typeProperties_scope')]",
+                    "events": [
+                        "Microsoft.Storage.BlobCreated",
+                        "Microsoft.Storage.BlobDeleted"
+                    ]
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/APP1_SQL_DATA_Trigger')]",
+            "type": "Microsoft.DataFactory/factories/triggers",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "runtimeState": "Started",
+                "pipelines": [
+                    {
+                        "pipelineReference": {
+                            "referenceName": "PL_ROUTING_MASTER",
+                            "type": "PipelineReference"
+                        },
+                        "parameters": {
+                            "TriggerDetails": "[parameters('APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails')]",
+                            "DataTransferType": "[parameters('APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType')]"
+                        }
+                    }
+                ],
+                "type": "ScheduleTrigger",
+                "typeProperties": {
+                    "recurrence": {
+                        "frequency": "Hour",
+                        "interval": 1,
+                        "startTime": "2023-08-10T13:50:00",
+                        "timeZone": "Eastern Standard Time"
+                    }
+                }
+            },
+            "dependsOn": []
+        }
+    ]
+}
