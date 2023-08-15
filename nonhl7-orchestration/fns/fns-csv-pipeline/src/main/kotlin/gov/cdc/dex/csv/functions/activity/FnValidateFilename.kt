@@ -12,8 +12,8 @@ import gov.cdc.dex.csv.constants.EnvironmentParam
 
 import java.util.logging.Level
 
-class FnCSVValidationGenericEntry{
-    @FunctionName("FnCSVValidationGeneric")
+class FnValidateFilenameEntry{
+    @FunctionName("FnValidateFilename")
     fun process(
         @DurableActivityTrigger(name = "input") input: ActivityInput, 
         context: ExecutionContext 
@@ -21,15 +21,15 @@ class FnCSVValidationGenericEntry{
         val blobConnectionString = EnvironmentParam.INGEST_BLOB_CONNECTION.getSystemValue()
         val blobService = AzureBlobServiceImpl(blobConnectionString)
 
-        return FnCSVValidationGeneric().process(input, context, blobService)
+        return FnValidateFilename().process(input, context, blobService)
     }
 }
 
-class FnCSVValidationGeneric {
+class FnValidateFilename {
 
     fun process(input: ActivityInput, context: ExecutionContext, blobService:IBlobService): ActivityOutput { 
                 
-        context.logger.log(Level.INFO,"Running CSV Validator (Generic) for input $input");
+        context.logger.log(Level.INFO,"Running CSV Filename Validator for input $input");
 
         val sourceUrl = input.common.params.currentFileUrl
 

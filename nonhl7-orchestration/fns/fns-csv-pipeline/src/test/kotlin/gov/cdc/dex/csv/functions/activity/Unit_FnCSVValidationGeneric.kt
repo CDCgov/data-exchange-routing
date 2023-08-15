@@ -28,9 +28,9 @@ import org.mockito.invocation.InvocationOnMock
 
 
 
-internal class Unit_FnCSVValidationGeneric {
+internal class Unit_FnValidateFilename {
     companion object{
-        private val outputParentDir = File("target/test-output/Unit_FnCSVValidationGeneric/"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSS")))
+        private val outputParentDir = File("target/test-output/Unit_FnValidateFilename/"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSS")))
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +39,7 @@ internal class Unit_FnCSVValidationGeneric {
     internal fun happyPath_singleCsv(){
         moveToOutput("test-upload.csv", "happyPath_singleCsv")
         val input = ActivityInput(common=CommonInput("happyPath_singleCsv", ActivityParams(originalFileUrl = "happyPath_singleCsv/test-upload.csv")))
-        val response = FnCSVValidationGeneric().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
+        val response = FnValidateFilename().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
         Assertions.assertNull(response.updatedParams)
         Assertions.assertNull(response.errorMessage)
         Assertions.assertNull(response.fanOutParams)
@@ -51,7 +51,7 @@ internal class Unit_FnCSVValidationGeneric {
     @Test
     internal fun negative_url_null(){
         val input = ActivityInput(common=CommonInput("negative_url_null", ActivityParams()))
-        val response = FnCSVValidationGeneric().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
+        val response = FnValidateFilename().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
         Assertions.assertEquals("No source URL provided!", response.errorMessage)
         Assertions.assertNull(response.updatedParams)
         Assertions.assertNull(response.fanOutParams)
@@ -60,7 +60,7 @@ internal class Unit_FnCSVValidationGeneric {
     @Test
     internal fun negative_url_empty(){
         val input = ActivityInput(common=CommonInput("negative_url_empty", ActivityParams(originalFileUrl = "")))
-        val response = FnCSVValidationGeneric().process(input, ContextMocker.mockExecutionContext(),BlobServiceMocker.mockBlobService(outputParentDir))
+        val response = FnValidateFilename().process(input, ContextMocker.mockExecutionContext(),BlobServiceMocker.mockBlobService(outputParentDir))
         Assertions.assertEquals("No source URL provided!", response.errorMessage)
         Assertions.assertNull(response.updatedParams)
         Assertions.assertNull(response.fanOutParams)
@@ -69,7 +69,7 @@ internal class Unit_FnCSVValidationGeneric {
     @Test
     internal fun negative_url_notFound(){
         val input = ActivityInput(common=CommonInput("negative_url_notFound", ActivityParams(originalFileUrl = "some-other-file.csv")))
-        val response = FnCSVValidationGeneric().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
+        val response = FnValidateFilename().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
         Assertions.assertEquals("File does not exist!", response.errorMessage)
         Assertions.assertNull(response.updatedParams)
         Assertions.assertNull(response.fanOutParams)
@@ -82,7 +82,7 @@ internal class Unit_FnCSVValidationGeneric {
     internal fun negative_file_notCSV(){
         moveToOutput("test-upload.xls","negative_file_notCSV")
         val input = ActivityInput(common=CommonInput("negative_file_unableToZip", ActivityParams(originalFileUrl = "negative_file_unableToZip/test-upload.xls")))
-        val response = FnCSVValidationGeneric().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
+        val response = FnValidateFilename().process(input, ContextMocker.mockExecutionContext(), BlobServiceMocker.mockBlobService(outputParentDir))
         Assertions.assertEquals("File is not a .csv!", response.errorMessage)
         Assertions.assertNull(response.updatedParams)
         Assertions.assertNull(response.fanOutParams)
