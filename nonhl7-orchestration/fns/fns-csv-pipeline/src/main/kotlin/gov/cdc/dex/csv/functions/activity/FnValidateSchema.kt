@@ -47,6 +47,16 @@ class FnValidateSchema {
     fun process(input: ActivityInput, context: ExecutionContext, blobService:IBlobService, numThreads:Int, blockQueueSize:Int, batchSize:Int): ActivityOutput { 
         context.logger.log(Level.INFO,"Running CSV Schema Validator for input $input");
 
+        
+        val sourceUrl = input.common.params.originalFileUrl
+        if(sourceUrl.isNullOrBlank()){
+            return ActivityOutput(errorMessage = "No source URL provided!")
+        }
+        //check for file existence
+        if(!blobService.exists(sourceUrl)){
+            return ActivityOutput(errorMessage = "File missing in Azure! $sourceUrl")
+        }
+
         val futures = mutableListOf<Future<SubOutput>>()
         val fileReader = openFileReader(input, blobService)
         if(fileReader == null){
@@ -107,7 +117,7 @@ class FnValidateSchema {
 
     private fun openFileReader(input: ActivityInput, blobService:IBlobService):BufferedReader?{
         val inputStream = blobService.openDownloadStream(input.common.params.originalFileUrl!!)
-        val pathInZip = input.common.params.currentFileUrl//input.common.params.pathInZip
+        val pathInZip = input.common.params.pathInZip
 
         if(pathInZip.isNullOrBlank()){
             return BufferedReader(InputStreamReader(inputStream))

@@ -31,20 +31,21 @@ class FnValidateFilename {
                 
         context.logger.log(Level.INFO,"Running CSV Filename Validator for input $input");
 
-        val sourceUrl = input.common.params.currentFileUrl
-
+        val sourceUrl = input.common.params.originalFileUrl
         if(sourceUrl.isNullOrBlank()){
             return ActivityOutput(errorMessage = "No source URL provided!")
         }
+        //check for file existence
+        if(!blobService.exists(sourceUrl)){
+            return ActivityOutput(errorMessage = "File missing in Azure! $sourceUrl")
+        }
 
-        if(!sourceUrl.endsWith(".csv")){
+        val path = input.common.params.pathInZip ?: sourceUrl
+
+        if(!path.endsWith(".csv")){
             return ActivityOutput(errorMessage = "File is not a .csv!")
         }
 
-        if(!blobService.exists(sourceUrl)){
-            return ActivityOutput(errorMessage = "File does not exist!")
-        }
-        
         return ActivityOutput()
     }
 }
