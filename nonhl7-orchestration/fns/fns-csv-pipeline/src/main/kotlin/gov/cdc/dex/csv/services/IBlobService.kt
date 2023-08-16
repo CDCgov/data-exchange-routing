@@ -10,4 +10,5 @@ interface IBlobService{
     fun getProperties(blobUrl:String):BlobProperties
     fun openDownloadStream(blobUrl:String):InputStream
     fun openUploadStream(blobUrl:String):OutputStream
+    fun getBlobContent(blobUrl:String):String
 }

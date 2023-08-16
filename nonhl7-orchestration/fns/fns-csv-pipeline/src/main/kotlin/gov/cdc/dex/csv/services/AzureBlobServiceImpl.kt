@@ -28,6 +28,10 @@ class AzureBlobServiceImpl(connectionString:String) :IBlobService {
 
     override fun openUploadStream(blobUrl: String): OutputStream {
         return getBlobClient(blobUrl).blockBlobClient.getBlobOutputStream()
-     }
+    }
+
+    override fun getBlobContent(blobUrl: String): String {
+        return getBlobClient(blobUrl).downloadContent().toString();
+    }
 
 }
