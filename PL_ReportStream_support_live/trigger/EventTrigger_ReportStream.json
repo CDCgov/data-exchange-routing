@@ -1,0 +1,27 @@
+{
+    "name": "EventTrigger_ReportStream",
+    "properties": {
+        "annotations": [],
+        "runtimeState": "Started",
+        "pipelines": [
+            {
+                "pipelineReference": {
+                    "referenceName": "PL_ReportStream",
+                    "type": "PipelineReference"
+                },
+                "parameters": {
+                    "fileName": "@trigger().outputs.body.fileName"
+                }
+            }
+        ],
+        "type": "BlobEventsTrigger",
+        "typeProperties": {
+            "blobPathBeginsWith": "/dex/blobs/",
+            "ignoreEmptyBlobs": true,
+            "scope": "/subscriptions/7d1e3999-6577-4cd5-b296-f518e5c8e677/resourceGroups/prime-data-hub-staging/providers/Microsoft.Storage/storageAccounts/pdhstagingpartner",
+            "events": [
+                "Microsoft.Storage.BlobCreated"
+            ]
+        }
+    }
+}
