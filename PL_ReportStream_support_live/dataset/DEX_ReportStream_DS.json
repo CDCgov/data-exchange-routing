@@ -1,0 +1,23 @@
+{
+    "name": "DEX_ReportStream_DS",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_DEX_RS_Routing",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobStorageLocation",
+                "container": "reportstream"
+            },
+            "columnDelimiter": ",",
+            "escapeChar": "\\",
+            "firstRowAsHeader": true,
+            "quoteChar": "\""
+        },
+        "schema": []
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}
