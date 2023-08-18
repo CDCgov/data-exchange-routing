@@ -8,6 +8,7 @@ import com.univocity.parsers.csv.CsvParserSettings
 
 import gov.cdc.dex.csv.dtos.CommonInput
 import gov.cdc.dex.csv.dtos.ActivityOutput
+import gov.cdc.dex.csv.dtos.ValidationError
 import gov.cdc.dex.csv.services.IBlobService
 import gov.cdc.dex.csv.services.AzureBlobServiceImpl
 import gov.cdc.dex.csv.constants.EnvironmentParam
@@ -63,8 +64,7 @@ class FnValidateCsvStructure {
         val futures = mutableListOf<Future<SubOutput>>()
         val fileReader = openFileReader(input, blobService)
         if(fileReader == null){
-            //TODO some kind of error message
-            throw RuntimeException("FILE READER NULL")
+            return ActivityOutput(errorMessage = "Unable to open CSV file!")
         }
 
         fileReader.use{ fr ->
@@ -72,14 +72,13 @@ class FnValidateCsvStructure {
 
             val schemaReader = openSchemaReader(input, blobService, headerLine)
             if(schemaReader == null){
-                //TODO some kind of error message
-                throw RuntimeException("SCHEMA READER NULL")
+                return ActivityOutput(errorMessage = "Unable to open CSV Schema file!")
             }
 
             schemaReader.use{ sr -> 
 
                 var currentInBatch = 0
-                var batchNumber = 1
+                var batchNumber = 0
                 var toSubmit = StringBuilder(headerLine)
 
                 val blockingQueue = ArrayBlockingQueue<Runnable>(blockQueueSize);
@@ -111,8 +110,23 @@ class FnValidateCsvStructure {
             val stillRunning = futures.filter{!it.isDone()}.count()
         } while(stillRunning > 0)
 
-        //TODO compile the output and do something with it
-        return ActivityOutput()
+        val validationErrors = mutableListOf<ValidationError>()
+        for(future in futures){
+            val output = future.get()
+            val lineAdder = output.batchNumber*batchSize
+            for(failMessage in output.messages){
+                //TODO if change around column order, will also need to update the column here
+                validationErrors.add(ValidationError(failMessage.message, failMessage.lineNumber+lineAdder, failMessage.columnIndex))
+            }
+        }
+
+        if(validationErrors.isEmpty()){
+            return ActivityOutput()
+        }else{
+            val newParams = input.common.params.copy()
+            newParams.validationErrors = validationErrors
+            return ActivityOutput(updatedParams = newParams, errorMessage = "File had ${validationErrors.count()} validation errors")
+        }
     }
 
     private fun subRunner(batchNumber:Int, batchReader:Reader, schemaReader:Reader):SubOutput{
@@ -170,13 +184,19 @@ class FnValidateCsvStructure {
         return StringReader(contents)
     }
 
+    private fun massageSchema(rawSchema:String, headerLine:String):String{
+        //TODO this is currently a vaguely-defined requirement, will need more info to flesh this out later
+        //things like changing the order of the headers, or removing white space from around the headers
+        return rawSchema
+    }
+
     private fun buildSchema(headerLine:String):String{
         //for now, using Univocity to parse the header line. This is what is used by Digital Preservation
         //kinda thinking will want to switch to Jackson...
         val settings = CsvParserSettings()
-        settings.format.setDelimiter(CSV_RFC1480_SEPARATOR)
-        settings.format.setQuote(CSV_RFC1480_QUOTE_CHARACTER)
-        settings.format.setQuoteEscape(CSV_RFC1480_QUOTE_ESCAPE_CHARACTER)
+        settings.format.setDelimiter(',')
+        settings.format.setQuote('\"')
+        settings.format.setQuoteEscape('\"')
         settings.setIgnoreLeadingWhitespaces(false)
         settings.setIgnoreTrailingWhitespaces(false)
         settings.setLineSeparatorDetectionEnabled(true)
@@ -190,11 +210,6 @@ class FnValidateCsvStructure {
             schemaString = schemaString + "\n$i"
         }
         return schemaString
-    }
-
-    private fun massageSchema(rawSchema:String, headerLine:String):String{
-        //TODO
-        return rawSchema
     }
 }
 
