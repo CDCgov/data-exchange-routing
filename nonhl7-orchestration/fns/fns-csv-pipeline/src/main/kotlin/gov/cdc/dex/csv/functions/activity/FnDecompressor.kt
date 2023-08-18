@@ -49,88 +49,68 @@ class FnDecompressor {
         val contentType = blobService.getProperties(sourceUrl).contentType
 
         //IF blocks are expressions, and variables can be returned out of them
-        var writtenUrls:List<String> = if(ZIP_TYPES.contains(contentType)){
+        var peekedPaths:List<String?> = if(ZIP_TYPES.contains(contentType)){
             //if ZIP, then unzip and capture the files that were contained
 
-            //stream from the existing zip, and immediately stream the unzipped data back to a new file in processed
+            //stream from the existing zip
             var downloadStream = blobService.openDownloadStream(sourceUrl)
-            var uploadStreamSupplier = {destinationUrl:String -> blobService.openUploadStream(destinationUrl)}
 
             //TRY blocks are expressions, and variables can be returned out of them
-            var writtenPathsZip:List<String> = try{
-                val destinationUrl = buildOutputUrl(sourceUrl, input.common.params.executionId)
-                decompressFileStream(downloadStream, uploadStreamSupplier, destinationUrl)
+            var pathsInZip:List<String> = try{
+                decompressFileStream(downloadStream)
             }catch(e:IOException){
-                context.logger.log(Level.SEVERE, "Error unzipping: $sourceUrl", e)
-                return ActivityOutput(errorMessage = "Error unzipping: $sourceUrl : ${e.localizedMessage}")
+                context.logger.log(Level.SEVERE, "Error peeking in zip: $sourceUrl", e)
+                return ActivityOutput(errorMessage = "Error peeking in zip: $sourceUrl : ${e.localizedMessage}")
             }
 
-            if(writtenPathsZip.isEmpty()){
+            if(pathsInZip.isEmpty()){
                 //fail if zip file was empty
-                return ActivityOutput(errorMessage = "Zipped file was empty: $sourceUrl")
+                return ActivityOutput(errorMessage = "Zipped file is empty: $sourceUrl")
             }
 
             //return the written paths to the IF statement, to be assigned to variable there
-            writtenPathsZip
+            pathsInZip
         } else {
             //if not a zip, pass along the pipeline
-            //wrap the path in a LIST and return to the IF statement
-            listOf(sourceUrl)
+            //return NULL as there are no paths in the zip
+            listOf(null)
         }
 
         val fanOutParams = mutableListOf<ActivityParams>()
-        for(url in writtenUrls){
+        for(path in peekedPaths){
             val fanParam = input.common.params.copy()
-            fanParam.currentFileUrl = url
+            fanParam.pathInZip = path
             fanOutParams.add(fanParam)
         }
         return ActivityOutput(fanOutParams = fanOutParams)
     }
     
-    private fun buildOutputUrl(sourceUrl:String, executionId:String?):String{
-        return sourceUrl.replaceFirst("ingest/", "processed/$executionId/").replace(".zip","-decompressed/")
-    }
-
-    private fun decompressFileStream(inputStream:InputStream, outputStreamSupplier: (String) -> OutputStream, outputUrl:String):List<String>{
-        var writtenPaths : MutableList<String> = mutableListOf();
+    private fun decompressFileStream(inputStream:InputStream):List<String>{
+        var pathsInZip : MutableList<String> = mutableListOf();
 
         //use is equivalent of try-with-resources, will close the input stream at the end
-        inputStream.use{ str ->
-            decompressFileStreamRecursive(str, outputStreamSupplier, outputUrl, writtenPaths)
-        }
-        return writtenPaths
+        inputStream.use{ decompressFileStreamRecursive(it, "", pathsInZip) }
+        return pathsInZip
     }
     
 
-    private fun decompressFileStreamRecursive(inputStream:InputStream, outputStreamSupplier: (String) -> OutputStream, outputUrl:String, writtenPaths : MutableList<String>){
+    private fun decompressFileStreamRecursive(inputStream:InputStream, pathPrefix:String, pathsInZip : MutableList<String>){
         //don't close input stream here because of recursion
         var zipInputStream = ZipInputStream(inputStream)
         var zipEntry = zipInputStream.nextEntry;
         
         while (zipEntry != null) {
-            //ignore any entries that are a directory. The directory path will be part of the zipEntry.name, and Azure automatically creates the needed directories
+            //ignore any entries that are a directory. The directory path will be part of the zipEntry.name
             if (!zipEntry.isDirectory()) {
                 if(zipEntry.name.endsWith(".zip")){
                     //if a nested zip, recurse
-                    var localPath = zipEntry.name.replace(".zip","/")
-                    decompressFileStreamRecursive(zipInputStream, outputStreamSupplier, outputUrl+localPath, writtenPaths)
+                    var localPath = zipEntry.name+"|~|"
+                    decompressFileStreamRecursive(zipInputStream, localPath, pathsInZip)
                 }else{
-                    // write file content directly to a new blob
-                    var urlToWrite = outputUrl+zipEntry.name
-
-                    var outputStream = outputStreamSupplier.invoke(urlToWrite)
-
-                    //use is equivalent of try-with-resources, will close the output stream when done
-                    BufferedOutputStream(outputStream).use{bufferedOutputStream ->
-                        val bytesIn = ByteArray(BUFFER_SIZE)
-                        var read: Int
-                        while (zipInputStream.read(bytesIn).also { read = it } != -1) {
-                            bufferedOutputStream.write(bytesIn, 0, read)
-                        }
-                    }
-                    //don't close input stream here because of recursion
+                    // include prefix of nested zips in path
+                    var pathToWrite = pathPrefix + zipEntry.name
         
-                    writtenPaths.add(urlToWrite)
+                    pathsInZip.add(pathToWrite)
                 }
             }
             zipEntry = zipInputStream.getNextEntry();

@@ -67,6 +67,12 @@
             <version>${jackson.module.kotlin.version}</version>
         </dependency>
 
+        <!-- Digital Preservation -->
+	    <dependency>
+	        <groupId>uk.gov.nationalarchives</groupId>
+	        <artifactId>csv-validator-java-api</artifactId>
+	        <version>1.2-RC4</version>
+	    </dependency>
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
