@@ -1,0 +1,92 @@
+[
+  {
+    "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+    "value": "",
+    "slotSetting": true
+  },
+  {
+    "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "APPLICATIONINSIGHTS_ENABLE_AGENT",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AzureWebJobsStorage",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "blobCNet",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "BlobStorageConnectionString",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "EventHubConnectionString",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "EventHubConsumerGroup",
+    "value": "$Default",
+    "slotSetting": false
+  },
+  {
+    "name": "EventHubSendErrName",
+    "value": "hl7-orchestrator-err",
+    "slotSetting": false
+  },
+  {
+    "name": "EventHubSendOkName",
+    "value": "hl7-orchestrator-ok",
+    "slotSetting": false
+  },
+  {
+    "name": "FUNCTIONS_EXTENSION_VERSION",
+    "value": "~4",
+    "slotSetting": false
+  },
+  {
+    "name": "FUNCTIONS_WORKER_RUNTIME",
+    "value": "java",
+    "slotSetting": false
+  },
+  {
+    "name": "hostURL",
+    "value": "https://afs-poc.azurewebsites.net",
+    "slotSetting": false
+  },
+  {
+    "name": "HTTPUrl",
+    "value": "https://afs-poc.azurewebsites.net/api/debatcher",
+    "slotSetting": false
+  },
+  {
+    "name": "ServiceBusConnectionString",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITE_CONTENTSHARE",
+    "value": "afs-poc9efa",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITE_RUN_FROM_PACKAGE",
+    "value": "1",
+    "slotSetting": false
+  }
+]
