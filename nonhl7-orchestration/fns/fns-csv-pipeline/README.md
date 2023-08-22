@@ -309,11 +309,12 @@ This function checks if the file is a ZIP directory.
 If so, it peeks through the directory, recursively peeking into nested ZIP if need be.
 Each found file (or the single original if not a ZIP) is then associated with branch for fan-out.
 
-**NOTE** the changes to just peek in the zip instead of unzipping are untested. The unit tests were not able to be updated before the handoff.
+```diff
+@@ **NOTE** the changes to just peek in the zip instead of unzipping are untested. The unit tests were not able to be updated before the handoff.
 Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
 As such, there is an idea of just peeking to grab the file names here, and then in the validation function itself stream the ZIP to this file and then only read in the contents of that file.
-Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach.
-
+Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach. @@
+```
 # Filename Validator
 **Type**: Activity<br>
 **Code**: [FnValidateFilename.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnValidateFilename.kt)
