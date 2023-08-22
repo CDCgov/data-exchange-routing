@@ -1,0 +1,17 @@
+{
+    "id": "*SCRUBBED*",
+    "name": "dex-csv-reporting-events",
+    "type": "Microsoft.EventHub/namespaces/eventhubs",
+    "location": "eastus",
+    "properties": {
+        "messageRetentionInDays": 1,
+        "partitionCount": 2,
+        "status": "Active",
+        "createdAt": "2023-08-08T20:24:56.763",
+        "updatedAt": "2023-08-08T20:24:56.933",
+        "partitionIds": [
+            "0",
+            "1"
+        ]
+    }
+}
