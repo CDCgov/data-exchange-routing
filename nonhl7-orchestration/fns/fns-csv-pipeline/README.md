@@ -1,6 +1,6 @@
 CSV pipeline functions project: Internal Router, Orchestrator, Decompressor, Validator(s), Transformer(s), Reporting, etc.
 
-#Summary
+# Summary
 This pipeline uses [Durable Functions](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-overview) to efficiently link all the code together. 
 The currently implemented functions and their [types](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-types-features-overview) are as follows:
 * [Internal Router](#internal-router) - Entity Function - the entry point for the pipeline
@@ -8,24 +8,24 @@ The currently implemented functions and their [types](https://learn.microsoft.co
 * [Decompressor](#decompressor) - Activitiy Function - unzips the ingested file, if applicable
 * [Generic Validator](#generic-validator) - Activity Function - validates properties of the file without opening it, such as file name
 
-#Internal Router
+# Internal Router
 **Type**: Entity<br>
 **Code**: [FnRouter.kt](src/main/kotlin/gov/cdc/dex/csv/functions/FnRouter.kt)
 
 The Internal Router is the entry point for the pipeline. It is triggered via Event Hub, reads the message and grabs the associated orchestrator configuration, and then triggers the [Orchestrator](#orchestrator).
 
-##Event Specification
+## Event Specification
 The router assumes that the event is triggered when a blob is put in the ingestion container. As such, the following fields are needed in the event message:
 * eventType - must equal "Microsoft.Storage.BlobCreated"
 * id - used for audit purposes to link everything together
 * data.url - location of ingested file
 
-##File Metadata
+## File Metadata
 In order to find the correct configuration, the router reads metadata from the ingested file. This metadata is required to now which CDC program the file is associated with. The following fields are required:
 * messageType - the CDC program, disease, or similar identifier (eg, "Routine Immunization" or "COVID-ELR")
 * messageVersion - if there are multiple versions for this type, which version is this file
 
-#Orchestrator
+# Orchestrator
 **Type**: Orchestrator<br>
 **Code**: [FnOrchestrator.kt](src/main/kotlin/gov/cdc/dex/csv/functions/FnOrchestrator.kt)
 
@@ -34,14 +34,14 @@ It executes each Activity function, splits processes into multiple threads, and 
 It feeds the parameters into the functions and maintains the state of the pipeline.
 All of this heavily relies on the [Durable Function](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-orchestrations) infrastructure.
 
-##Fan Out / Fan In
+## Fan Out / Fan In
 The orchestrator is designed to handle [fan out / fan in](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-overview#fan-in-out) patterns.
 In order to accomodate an arbitrary amount of nested fanning, this is handled by recursively calling sub-orchestration.
 Whenever a fan-out is triggered, a new instance of the orchestrator is called, passing in the current step to run as well as that thread's specific parameters.
 Each sub-orchestrator runs until the fan-in step is triggered (or end of the pipeline if there is no fan-in step).
 The orchestrator layer above waits for each sub-orchestrator to finish before calling the fan-in step.
 
-##Configuration Layout
+## Configuration Layout
 The configuration for the Orchestrator is the list of functions to be ran. It is specified in JSON with the following schema:
 ```
 {
@@ -116,7 +116,7 @@ where `~FunctionConfiguration` refers to the schema
 	"required": ["functionName"]
 }
 ```
-###Example Configurations
+### Example Configurations
 Basic configuration, running only generic validation and nothing else
 ```
 {
@@ -175,7 +175,7 @@ A more thorough configuration, running the decompressor and validations (note th
 	}
 }
 ```
-##Activity Function Input Parameters
+## Activity Function Input Parameters
 The orchestrator passes data to the Activity Functions using a task hub (similar to events).
 The messages are written in JSON, and this pipeline enforces the following structure:
 ```
@@ -244,7 +244,7 @@ where `~ActivityParams` refers to the schema
 	"required": []
 }
 ```
-##Activity Function Output Parameters
+## Activity Function Output Parameters
 The activity functions pass data back to the orchestrator using the same task hub mechanism
 The messages are written in JSON, and this pipeline enforces the following structure:
 ```
@@ -276,7 +276,7 @@ The messages are written in JSON, and this pipeline enforces the following struc
 ```
 where `~ActivityParams` refers to the schema specified in input params
 
-#Decompressor
+# Decompressor
 **Type**: Activity<br>
 **Code**: [FnDecompressor.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnDecompressor.kt)
 
@@ -284,7 +284,7 @@ This function checks if the file is a ZIP directory.
 If so, it extracts each file from the directory, recursively unzipping if need be.
 Each found file (or the single original if not a ZIP) is then associated with branch for fan-out.
 
-#Generic Validator
+# Generic Validator
 **Type**: Activity<br>
 **Code**: [FnCSVValidationGeneric.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnCSVValidationGeneric.kt)
 
