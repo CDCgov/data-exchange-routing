@@ -309,12 +309,11 @@ This function checks if the file is a ZIP directory.
 If so, it peeks through the directory, recursively peeking into nested ZIP if need be.
 Each found file (or the single original if not a ZIP) is then associated with branch for fan-out.
 
-```diff
-@@ **NOTE** the changes to just peek in the zip instead of unzipping are untested. The unit tests were not able to be updated before the handoff.
-Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
-As such, there is an idea of just peeking to grab the file names here, and then in the validation function itself stream the ZIP to this file and then only read in the contents of that file.
-Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach. @@
-```
+>**NOTE** the changes to just peek in the zip instead of unzipping are untested. The unit tests were not able to be updated before the handoff.
+>Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
+>As such, there is an idea of just peeking to grab the file names here, and then in the validation function itself stream the ZIP to this file and then only read in the contents of that file.
+>Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach.
+
 # Filename Validator
 **Type**: Activity<br>
 **Code**: [FnValidateFilename.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnValidateFilename.kt)
@@ -332,12 +331,10 @@ This function validates the file is present in the container and the name ends w
 This function uses [Digital Preservation's CSV validation tool](https://github.com/digital-preservation/csv-validator) to validate the contents of the CSV file.
 The associated format for the schema is detailed [here](http://digital-preservation.github.io/csv-schema/csv-schema-1.2.html).
 
-**NOTE** This function is completely untested. Handoff occurred before even unit tests were created.
-
-## Zip Stream
-Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
-As such, there is an idea of just peeking to grab the file names in the decompressor, and then in this function stream the ZIP to the single file and then only read in the contents of that file.
-Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach.
+>**NOTE** This function is completely untested. Handoff occurred before even unit tests were created.
+>Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
+>As such, there is an idea of just peeking to grab the file names in the decompressor, and then in this function stream the ZIP to the single file and then only read in the contents of that file.
+>Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach.
 
 ## Multithreading
 Digital Preservation does not offer multithreading out-of-the-box. As such, this function manually chunks the file and runs multiple threads in parallel.
@@ -353,4 +350,4 @@ Digital Preservation is strict with its schema.
 Columns must be in the order specified in the schema, headers must not have trailing or leading whitespace, there can't be any extra columns not specified in the schema, and other limitations.
 Some use cases want a more lax standard.
 As such, the idea is pass in a "relaxedHeader" configuration boolean to this function, which if enabled the code will massage the schema a little bit before streaming in the file for validation.
-This was implemented in the proof-of-concept for Digital Preservation, but has not yet been implemented here.
+>**NOTE** This was implemented in the proof-of-concept for Digital Preservation, but has not yet been implemented here.
