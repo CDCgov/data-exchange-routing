@@ -5,8 +5,9 @@ This pipeline uses [Durable Functions](https://learn.microsoft.com/en-us/azure/a
 The currently implemented functions and their [types](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-types-features-overview) are as follows:
 * [Internal Router](#internal-router) - Entity Function - the entry point for the pipeline
 * [Orchestrator](#orchestrator) - Orchestrator Function - the main workhorse of the pipeline
-* [Decompressor](#decompressor) - Activitiy Function - unzips the ingested file, if applicable
-* [Generic Validator](#generic-validator) - Activity Function - validates properties of the file without opening it, such as file name
+* [Decompressor](#decompressor) - Activitiy Function - peeks into a zipped file
+* [Filename Validator](#filename-validator) - Activity Function - validates properties of the file without opening it, such as file name
+* [Schema Validator](#schema-validator) - Activity Function - validates the contents of the file against the associated schema
 
 # Internal Router
 **Type**: Entity<br>
@@ -124,7 +125,7 @@ Basic configuration, running only generic validation and nothing else
 		{
 			"stepNumber": "1",
 			"functionToRun": {
-				"functionName": "FnCSVValidationGeneric"
+				"functionName": "FnValidateFilename"
 			}
 		}
 	]
@@ -144,7 +145,7 @@ A more thorough configuration, running the decompressor and validations (note th
 		{
 			"stepNumber": "2",
 			"functionToRun": {
-				"functionName": "FnCSVValidationGeneric"
+				"functionName": "FnValidateFilename"
 			}
 		},
 		{
@@ -232,9 +233,32 @@ where `~ActivityParams` refers to the schema
 			"description": "the URL of the file dumped into ingestion",
 			"type": "string"
 		}, 
-		"currentFileUrl": {
-			"description": "the URL of the file in its current state in the pipeline",
+		"pathInZip": {
+			"description": "the path within the zip file to the specific file for this branch",
 			"type": "string"
+		}, 
+		"validationErrors": {
+			"description": "the error messages reported by the schema validator",
+			"type": "array",
+			"items": {
+				"description": "a single error message",
+				"type": "object",
+				"properties":{
+					"message":{
+						"description": "the message given by the schema validator",
+						"type": "string"
+					},
+					"lineNumber":{
+						"description": "the line in the file which has the error (1-based), or -1 if applies to the file as a whole"
+						"type": "integer"
+					},
+					"columnIndex":{
+						"description": "the column in the line which has the error (0-based), or -1 if applies to the row as a whole"
+						"type": "integer"
+					}
+				},
+				"required":["message","lineNumber","columnIndex"]
+			}
 		}, 
 		"errorMessage": {
 			"description": "the error message to report",
@@ -279,13 +303,53 @@ where `~ActivityParams` refers to the schema specified in input params
 # Decompressor
 **Type**: Activity<br>
 **Code**: [FnDecompressor.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnDecompressor.kt)
+**Configuration Params**: none
 
 This function checks if the file is a ZIP directory. 
-If so, it extracts each file from the directory, recursively unzipping if need be.
+If so, it peeks through the directory, recursively peeking into nested ZIP if need be.
 Each found file (or the single original if not a ZIP) is then associated with branch for fan-out.
 
-# Generic Validator
+**NOTE** the changes to just peek in the zip instead of unzipping are untested. The unit tests were not able to be updated before the handoff.
+Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
+As such, there is an idea of just peeking to grab the file names here, and then in the validation function itself stream the ZIP to this file and then only read in the contents of that file.
+Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach.
+
+# Filename Validator
 **Type**: Activity<br>
-**Code**: [FnCSVValidationGeneric.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnCSVValidationGeneric.kt)
+**Code**: [FnValidateFilename.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnValidateFilename.kt)
+**Configuration Params**: none
 
 This function validates the file is present in the container and the name ends with ".csv"
+
+# Schema Validator
+**Type**: Activity<br>
+**Code**: [FnValidateFilename.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnValidateFilename.kt)
+**Configuration Params**:
+* schemaUrl - location of the schema file to use
+* relaxedHeader - whether to relax header requirements (ordering, whitespace, etc)
+
+This function uses [Digital Preservation's CSV validation tool](https://github.com/digital-preservation/csv-validator) to validate the contents of the CSV file.
+The associated format for the schema is detailed [here](http://digital-preservation.github.io/csv-schema/csv-schema-1.2.html).
+
+**NOTE** This function is completely untested. Handoff occurred before even unit tests were created.
+
+## Zip Stream
+Since no use cases want unzipped files, there is "no need" to have the files physically unzipped (there might be performance concerns, but we did not have a chance to test these out).
+As such, there is an idea of just peeking to grab the file names in the decompressor, and then in this function stream the ZIP to the single file and then only read in the contents of that file.
+Again, there are a lot of performance considerations that have not been tested with either this approach or the original approach.
+
+## Multithreading
+Digital Preservation does not offer multithreading out-of-the-box. As such, this function manually chunks the file and runs multiple threads in parallel.
+
+## No-Schema Implementation
+Digital Preservation requires a schema to run any kind of validation on the file.
+In order to enforce that each row has the same number of columns, the number of columns must be specified in the schema.
+To support use cases that don't provide a schema, we generate a schema on-the-fly.
+This is done by reading the header line and counting the columns, then creating the most basic of schemas possible.
+
+## Schema Massaging
+Digital Preservation is strict with its schema.
+Columns must be in the order specified in the schema, headers must not have trailing or leading whitespace, there can't be any extra columns not specified in the schema, and other limitations.
+Some use cases want a more lax standard.
+As such, the idea is pass in a "relaxedHeader" configuration boolean to this function, which if enabled the code will massage the schema a little bit before streaming in the file for validation.
+This was implemented in the proof-of-concept for Digital Preservation, but has not yet been implemented here.
