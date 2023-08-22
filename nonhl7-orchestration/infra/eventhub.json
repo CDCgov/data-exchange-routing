@@ -1,17 +1,25 @@
 {
+    "sku": {
+        "name": "Basic",
+        "tier": "Basic",
+        "capacity": 1
+    },
     "id": "*SCRUBBED*",
-    "name": "dex-csv-ingest-eventhub",
-    "type": "Microsoft.EventHub/namespaces/eventhubs",
-    "location": "eastus",
+    "name": "dex-csv-event-namespace",
+    "type": "Microsoft.EventHub/Namespaces",
+    "location": "East US",
+    "tags": {},
     "properties": {
-        "messageRetentionInDays": 1,
-        "partitionCount": 2,
-        "status": "Active",
-        "createdAt": "2023-04-27T12:13:19.963",
-        "updatedAt": "2023-05-03T13:59:44.147",
-        "partitionIds": [
-            "0",
-            "1"
-        ]
+        "disableLocalAuth": false,
+        "zoneRedundant": true,
+        "isAutoInflateEnabled": false,
+        "maximumThroughputUnits": 0,
+        "kafkaEnabled": false,
+        "provisioningState": "Succeeded",
+        "metricId": "*SCRUBBED*",
+        "createdAt": "2023-04-18T15:38:01.653Z",
+        "updatedAt": "2023-04-18T15:39:01.367Z",
+        "serviceBusEndpoint": "*SCRUBBED*",
+        "status": "Active"
     }
 }
