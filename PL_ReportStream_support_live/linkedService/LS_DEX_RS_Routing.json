@@ -1,0 +1,27 @@
+{
+    "name": "LS_DEX_RS_Routing",
+    "type": "Microsoft.DataFactory/factories/linkedservices",
+    "properties": {
+        "annotations": [],
+        "type": "AzureBlobStorage",
+        "typeProperties": {
+            "serviceEndpoint": "https://ocioedereportstreamdev.blob.core.windows.net/",
+            "tenant": "9ce70869-60db-44fd-abe8-d2767077fc8f",
+            "servicePrincipalId": "f3e876c6-b656-436c-bed2-1a1ad3bc95d0",
+            "servicePrincipalCredentialType": "ServicePrincipalKey",
+            "servicePrincipalCredential": {
+                "type": "AzureKeyVaultSecret",
+                "store": {
+                    "referenceName": "LS_DEX_RS_Azure_Keyvault",
+                    "type": "LinkedServiceReference"
+                },
+                "secretName": "Appvalue"
+            },
+            "accountKind": "StorageV2"
+        },
+        "connectVia": {
+            "referenceName": "SelfHosted-IR",
+            "type": "IntegrationRuntimeReference"
+        }
+    }
+}

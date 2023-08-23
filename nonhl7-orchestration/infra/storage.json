@@ -1,0 +1,73 @@
+{
+    "sku": {
+        "name": "Standard_RAGRS",
+        "tier": "Standard"
+    },
+    "kind": "StorageV2",
+    "id": "*SCRUBBED*",
+    "name": "dexcsvdata001",
+    "type": "Microsoft.Storage/storageAccounts",
+    "location": "eastus",
+    "tags": {},
+    "properties": {
+        "dnsEndpointType": "Standard",
+        "defaultToOAuthAuthentication": false,
+        "publicNetworkAccess": "Enabled",
+        "keyCreationTime": {
+            "key1": "2023-04-17T16:38:48.1785642Z",
+            "key2": "2023-04-17T16:38:48.1785642Z"
+        },
+        "allowCrossTenantReplication": false,
+        "privateEndpointConnections": [],
+        "isSftpEnabled": false,
+        "minimumTlsVersion": "TLS1_2",
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": true,
+        "isHnsEnabled": true,
+        "networkAcls": {
+            "bypass": "AzureServices",
+            "virtualNetworkRules": [],
+            "ipRules": [],
+            "defaultAction": "Allow"
+        },
+        "supportsHttpsTrafficOnly": true,
+        "encryption": {
+            "requireInfrastructureEncryption": false,
+            "services": {
+                "file": {
+                    "keyType": "Account",
+                    "enabled": true,
+                    "lastEnabledTime": "2023-04-17T16:38:48.1941884Z"
+                },
+                "blob": {
+                    "keyType": "Account",
+                    "enabled": true,
+                    "lastEnabledTime": "2023-04-17T16:38:48.1941884Z"
+                }
+            },
+            "keySource": "Microsoft.Storage"
+        },
+        "accessTier": "Hot",
+        "provisioningState": "Succeeded",
+        "creationTime": "2023-04-17T16:38:48.0535864Z",
+        "primaryEndpoints": {
+            "dfs": "*SCRUBBED*",
+            "web": "*SCRUBBED*",
+            "blob": "*SCRUBBED*",
+            "queue": "*SCRUBBED*",
+            "table": "*SCRUBBED*",
+            "file": "*SCRUBBED*"
+        },
+        "primaryLocation": "eastus",
+        "statusOfPrimary": "available",
+        "secondaryLocation": "westus",
+        "statusOfSecondary": "available",
+        "secondaryEndpoints": {
+            "dfs": "*SCRUBBED*",
+            "web": "*SCRUBBED*",
+            "blob": "*SCRUBBED*",
+            "queue": "*SCRUBBED*",
+            "table": "*SCRUBBED*"
+        }
+    }
+}

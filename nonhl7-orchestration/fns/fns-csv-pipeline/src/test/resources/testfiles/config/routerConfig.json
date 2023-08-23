@@ -1,0 +1,12 @@
+[
+    {
+        "messageType":"happyPath",
+        "messageVersion":"DUMMY",
+        "configurationFileName":"happyPath-orch.json"
+    },
+    {
+        "messageType":"DUMMY",
+        "messageVersion":"DUMMY",
+        "configurationFileName":"DUMMY"
+    }
+]

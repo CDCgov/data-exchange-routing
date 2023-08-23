@@ -1,0 +1,24 @@
+{
+    "FILETYPE": "CASE",
+    "FILENAME": "testFile",
+    "PIPELINE_PROCESS": [
+        {
+            "function_name": "HttpTrigger-Step",
+            "referenceStorage": "location",
+            "functionURI": "http://localhost:7071/api/HttpTrigger-Step",
+            "result": ""
+        },
+        {
+            "function_name": "HttpTrigger-Step2",
+            "referenceStorage": "location",
+            "functionURI": "http://localhost:7071/api/HttpTrigger-Step2",
+            "result": ""
+        },
+        {
+            "function_name": "HttpTrigger-Step3",
+            "referenceStorage": "location",
+            "functionURI": "",
+            "result": ""
+        }
+    ]
+}

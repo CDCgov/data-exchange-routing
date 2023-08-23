@@ -1,0 +1,13 @@
+{
+    "steps":[
+        {
+            "stepNumber":"1",
+            "functionToRun":{
+                "functionName":"1-functionToRun"
+            }
+        }
+    ],
+    "globalErrorFunction":{
+        "functionName":"globalErrorFunction"
+    }
+}

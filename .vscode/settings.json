@@ -4,5 +4,12 @@
         "CFPB",
         "ISSO",
         "cybersecurity"
-    ]
+    ],
+    "azureFunctions.projectSubpath": "nonhl7-orchestration\\fns\\fns-csv-pipeline",
+    "azureFunctions.javaBuildTool": "maven",
+    "azureFunctions.deploySubpath": "nonhl7-orchestration\\fns\\fns-csv-pipeline/target/azure-functions/dex-csv-fn-app",
+    "azureFunctions.projectLanguage": "Java",
+    "azureFunctions.projectRuntime": "~4",
+    "debug.internalConsoleOptions": "neverOpen",
+    "azureFunctions.preDeployTask": "package (functions)"
 }
