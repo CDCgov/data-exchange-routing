@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureEventHubConnectionString": "**scrubbed**",
+    "AzureEventHubConsumerGroup": "**scrubbed**",
+    "AzureEventHubName": "**scrubbed**",
+    "AzureWebJobsStorage": "**scrubbed**",
+    "FUNCTIONS_WORKER_RUNTIME": "**scrubbed**",
+    "BlobDestinationStorageAccountName": "**scrubbed**",
+    "BlobDestinationContainerName": "**scrubbed**",
+    "BlobIngestStorageAccountName": "**scrubbed**",
+    "BlobIngestContainerName": "**scrubbed**"
+  }
+}

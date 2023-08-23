@@ -1,0 +1,313 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sites_dex_rs_ingest_fn_router_name": {
+            "defaultValue": "dex-rs-ingest-fn-router",
+            "type": "String"
+        },
+        "serverfarms_dex_rs_asp_router_externalid": {
+            "defaultValue": "/subscriptions/**scrubbed**/resourceGroups/cdc-modernization-dex/providers/Microsoft.Web/serverfarms/dex-rs-asp-router",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2022-09-01",
+            "name": "[parameters('sites_dex_rs_ingest_fn_router_name')]",
+            "location": "East US",
+            "tags": {
+                "Purpose": "R&S POC",
+                "hidden-link: /app-insights-resource-id": "/subscriptions/**scrubbed**/resourceGroups/cdc-modernization-dex/providers/microsoft.insights/components/dex-rs-ingest-router",
+                "hidden-link: /app-insights-instrumentation-key": "**scrubbed**",
+                "hidden-link: /app-insights-conn-string": "**scrubbed**"
+            },
+            "kind": "functionapp",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "enabled": true,
+                "hostNameSslStates": [
+                    {
+                        "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "hostType": "Standard"
+                    },
+                    {
+                        "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '.scm.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "hostType": "Repository"
+                    }
+                ],
+                "serverFarmId": "[parameters('serverfarms_dex_rs_asp_router_externalid')]",
+                "reserved": false,
+                "isXenon": false,
+                "hyperV": false,
+                "vnetRouteAllEnabled": false,
+                "vnetImagePullEnabled": false,
+                "vnetContentShareEnabled": false,
+                "siteConfig": {
+                    "numberOfWorkers": 1,
+                    "acrUseManagedIdentityCreds": false,
+                    "alwaysOn": true,
+                    "http20Enabled": false,
+                    "functionAppScaleLimit": 0,
+                    "minimumElasticInstanceCount": 0
+                },
+                "scmSiteAlsoStopped": false,
+                "clientAffinityEnabled": false,
+                "clientCertEnabled": false,
+                "clientCertMode": "Required",
+                "hostNamesDisabled": false,
+                "customDomainVerificationId": "**scrubbed**",
+                "containerSize": 1536,
+                "dailyMemoryTimeQuota": 0,
+                "httpsOnly": true,
+                "redundancyMode": "None",
+                "publicNetworkAccess": "Enabled",
+                "storageAccountRequired": false,
+                "keyVaultReferenceIdentity": "SystemAssigned"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/ftp')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "tags": {
+                "Purpose": "R&S POC",
+                "hidden-link: /app-insights-resource-id": "/subscriptions/**scrubbed**/resourceGroups/cdc-modernization-dex/providers/microsoft.insights/components/dex-rs-ingest-router",
+                "hidden-link: /app-insights-instrumentation-key": "**scrubbed**",
+                "hidden-link: /app-insights-conn-string": "**scrubbed**"
+            },
+            "properties": {
+                "allow": true
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/scm')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "tags": {
+                "Purpose": "R&S POC",
+                "hidden-link: /app-insights-resource-id": "/subscriptions/**scrubbed**/resourceGroups/cdc-modernization-dex/providers/microsoft.insights/components/dex-rs-ingest-router",
+                "hidden-link: /app-insights-instrumentation-key": "**scrubbed**",
+                "hidden-link: /app-insights-conn-string": "**scrubbed**"
+            },
+            "properties": {
+                "allow": true
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/config",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/web')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "tags": {
+                "Purpose": "R&S POC",
+                "hidden-link: /app-insights-resource-id": "/subscriptions/**scrubbed**/resourceGroups/cdc-modernization-dex/providers/microsoft.insights/components/dex-rs-ingest-router",
+                "hidden-link: /app-insights-instrumentation-key": "**scrubbed**",
+                "hidden-link: /app-insights-conn-string": "**scrubbed**"
+            },
+            "properties": {
+                "numberOfWorkers": 1,
+                "defaultDocuments": [
+                    "Default.htm",
+                    "Default.html",
+                    "Default.asp",
+                    "index.htm",
+                    "index.html",
+                    "iisstart.htm",
+                    "default.aspx",
+                    "index.php"
+                ],
+                "netFrameworkVersion": "v6.0",
+                "requestTracingEnabled": false,
+                "remoteDebuggingEnabled": false,
+                "remoteDebuggingVersion": "VS2019",
+                "httpLoggingEnabled": false,
+                "acrUseManagedIdentityCreds": false,
+                "logsDirectorySizeLimit": 35,
+                "detailedErrorLoggingEnabled": false,
+                "publishingUsername": "$dex-rs-ingest-fn-router",
+                "scmType": "None",
+                "use32BitWorkerProcess": true,
+                "webSocketsEnabled": false,
+                "alwaysOn": true,
+                "managedPipelineMode": "Integrated",
+                "virtualApplications": [
+                    {
+                        "virtualPath": "/",
+                        "physicalPath": "site\\wwwroot",
+                        "preloadEnabled": true
+                    }
+                ],
+                "loadBalancing": "LeastRequests",
+                "experiments": {
+                    "rampUpRules": []
+                },
+                "autoHealEnabled": false,
+                "vnetRouteAllEnabled": false,
+                "vnetPrivatePortsCount": 0,
+                "publicNetworkAccess": "Enabled",
+                "cors": {
+                    "allowedOrigins": [
+                        "https://portal.azure.com"
+                    ],
+                    "supportCredentials": false
+                },
+                "localMySqlEnabled": false,
+                "managedServiceIdentityId": 1436,
+                "ipSecurityRestrictions": [
+                    {
+                        "ipAddress": "Any",
+                        "action": "Allow",
+                        "priority": 2147483647,
+                        "name": "Allow all",
+                        "description": "Allow all access"
+                    }
+                ],
+                "scmIpSecurityRestrictions": [
+                    {
+                        "ipAddress": "Any",
+                        "action": "Allow",
+                        "priority": 2147483647,
+                        "name": "Allow all",
+                        "description": "Allow all access"
+                    }
+                ],
+                "scmIpSecurityRestrictionsUseMain": false,
+                "http20Enabled": false,
+                "minTlsVersion": "1.2",
+                "scmMinTlsVersion": "1.2",
+                "ftpsState": "FtpsOnly",
+                "preWarmedInstanceCount": 0,
+                "functionAppScaleLimit": 0,
+                "functionsRuntimeScaleMonitoringEnabled": false,
+                "minimumElasticInstanceCount": 0,
+                "azureStorageAccounts": {}
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/2a914125b5004ebd92fc36029247dfad')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "properties": {
+                "status": 4,
+                "author_email": "N/A",
+                "author": "N/A",
+                "deployer": "ZipDeploy",
+                "message": "Created via a push deployment",
+                "start_time": "2023-05-17T02:29:59.3869725Z",
+                "end_time": "2023-05-17T02:29:59.6682132Z",
+                "active": false
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/ad5d3ebc23f840b68b906872123463b6')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "properties": {
+                "status": 4,
+                "author_email": "N/A",
+                "author": "N/A",
+                "deployer": "ZipDeploy",
+                "message": "Created via a push deployment",
+                "start_time": "2023-05-17T02:18:44.0741175Z",
+                "end_time": "2023-05-17T02:18:52.4373815Z",
+                "active": false
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/baee278bc0354e758165efa7d26afc53')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "properties": {
+                "status": 4,
+                "author_email": "N/A",
+                "author": "N/A",
+                "deployer": "ZipDeploy",
+                "message": "Created via a push deployment",
+                "start_time": "2023-05-17T02:34:23.2335875Z",
+                "end_time": "2023-05-17T02:34:23.4992056Z",
+                "active": true
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/bed171ee2383484bb77761367a45f1d4')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "properties": {
+                "status": 4,
+                "author_email": "N/A",
+                "author": "N/A",
+                "deployer": "ZipDeploy",
+                "message": "Created via a push deployment",
+                "start_time": "2023-05-17T02:25:56.4747299Z",
+                "end_time": "2023-05-17T02:25:56.7725847Z",
+                "active": false
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/functions",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/RouteIngestedFile')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "properties": {
+                "script_root_path_href": "https://dex-rs-ingest-fn-router.azurewebsites.net/admin/vfs/site/wwwroot/RouteIngestedFile/",
+                "script_href": "https://dex-rs-ingest-fn-router.azurewebsites.net/admin/vfs/site/wwwroot/bin/IngestionRouter.dll",
+                "config_href": "https://dex-rs-ingest-fn-router.azurewebsites.net/admin/vfs/site/wwwroot/RouteIngestedFile/function.json",
+                "test_data_href": "https://dex-rs-ingest-fn-router.azurewebsites.net/admin/vfs/data/Functions/sampledata/RouteIngestedFile.dat",
+                "href": "https://dex-rs-ingest-fn-router.azurewebsites.net/admin/functions/RouteIngestedFile",
+                "config": {},
+                "language": "DotNetAssembly",
+                "isDisabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites/hostNameBindings",
+            "apiVersion": "2022-09-01",
+            "name": "[concat(parameters('sites_dex_rs_ingest_fn_router_name'), '/', parameters('sites_dex_rs_ingest_fn_router_name'), '.azurewebsites.net')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_dex_rs_ingest_fn_router_name'))]"
+            ],
+            "properties": {
+                "siteName": "dex-rs-ingest-fn-router",
+                "hostNameType": "Verified"
+            }
+        }
+    ]
+}

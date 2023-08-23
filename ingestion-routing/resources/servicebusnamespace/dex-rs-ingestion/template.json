@@ -1,0 +1,253 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "namespaces_dex_rs_ingestion_name": {
+            "defaultValue": "dex-rs-ingestion",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.ServiceBus/namespaces",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[parameters('namespaces_dex_rs_ingestion_name')]",
+            "location": "East US",
+            "tags": {
+                "Purpose": "R&S POC"
+            },
+            "sku": {
+                "name": "Standard",
+                "tier": "Standard"
+            },
+            "properties": {
+                "premiumMessagingPartitions": 0,
+                "minimumTlsVersion": "1.2",
+                "publicNetworkAccess": "Enabled",
+                "disableLocalAuth": false,
+                "zoneRedundant": false
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/authorizationrules",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/RootManageSharedAccessKey')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "rights": [
+                    "Listen",
+                    "Manage",
+                    "Send"
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/networkRuleSets",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/default')]",
+            "location": "East US",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "publicNetworkAccess": "Enabled",
+                "defaultAction": "Allow",
+                "virtualNetworkRules": [],
+                "ipRules": []
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-csv-ingested')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "maxMessageSizeInKilobytes": 256,
+                "defaultMessageTimeToLive": "P14D",
+                "maxSizeInMegabytes": 1024,
+                "requiresDuplicateDetection": false,
+                "duplicateDetectionHistoryTimeWindow": "PT10M",
+                "enableBatchedOperations": true,
+                "status": "Active",
+                "supportOrdering": true,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+                "enablePartitioning": false,
+                "enableExpress": false
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-hl7-ingested')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "maxMessageSizeInKilobytes": 256,
+                "defaultMessageTimeToLive": "P14D",
+                "maxSizeInMegabytes": 1024,
+                "requiresDuplicateDetection": false,
+                "duplicateDetectionHistoryTimeWindow": "PT10M",
+                "enableBatchedOperations": true,
+                "status": "Active",
+                "supportOrdering": true,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+                "enablePartitioning": false,
+                "enableExpress": false
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-misc-ingested')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "maxMessageSizeInKilobytes": 256,
+                "defaultMessageTimeToLive": "P14D",
+                "maxSizeInMegabytes": 1024,
+                "requiresDuplicateDetection": false,
+                "duplicateDetectionHistoryTimeWindow": "PT10M",
+                "enableBatchedOperations": true,
+                "status": "Active",
+                "supportOrdering": true,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+                "enablePartitioning": false,
+                "enableExpress": false
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-csv-ingested/dex-rs-csv-sendsomewhere')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-csv-ingested')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "isClientAffine": false,
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P14D",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 10,
+                "status": "Active",
+                "enableBatchedOperations": true,
+                "autoDeleteOnIdle": "P14D"
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-hl7-ingested/dex-rs-hl7-sendsomewhere')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-hl7-ingested')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "isClientAffine": false,
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P14D",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 10,
+                "status": "Active",
+                "enableBatchedOperations": true,
+                "autoDeleteOnIdle": "P14D"
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-misc-ingested/dex-rs-misc-sendsomewhere')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-misc-ingested')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "isClientAffine": false,
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P14D",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 10,
+                "status": "Active",
+                "enableBatchedOperations": true,
+                "autoDeleteOnIdle": "P14D"
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-csv-ingested/dex-rs-csv-sendsomewhere/$Default')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-csv-ingested', 'dex-rs-csv-sendsomewhere')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-csv-ingested')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "action": {},
+                "filterType": "SqlFilter",
+                "sqlFilter": {
+                    "sqlExpression": "1=1",
+                    "compatibilityLevel": 20
+                }
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-hl7-ingested/dex-rs-hl7-sendsomewhere/$Default')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-hl7-ingested', 'dex-rs-hl7-sendsomewhere')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-hl7-ingested')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "action": {},
+                "filterType": "SqlFilter",
+                "sqlFilter": {
+                    "sqlExpression": "1=1",
+                    "compatibilityLevel": 20
+                }
+            }
+        },
+        {
+            "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[concat(parameters('namespaces_dex_rs_ingestion_name'), '/dex-rs-misc-ingested/dex-rs-misc-sendsomewhere/$Default')]",
+            "location": "eastus",
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-misc-ingested', 'dex-rs-misc-sendsomewhere')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', parameters('namespaces_dex_rs_ingestion_name'), 'dex-rs-misc-ingested')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_dex_rs_ingestion_name'))]"
+            ],
+            "properties": {
+                "action": {},
+                "filterType": "SqlFilter",
+                "sqlFilter": {
+                    "sqlExpression": "1=1",
+                    "compatibilityLevel": 20
+                }
+            }
+        }
+    ]
+}

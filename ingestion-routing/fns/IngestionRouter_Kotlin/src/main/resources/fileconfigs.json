@@ -1,0 +1,23 @@
+[
+  {
+    "FileType": "CSV",
+    "MessageTypes": [""],
+    "StagingLocations": {
+      "DestinationContainer": "/demo/CSV/staged"
+    }
+  },
+  {
+    "FileType": "HL7",
+    "MessageTypes": ["CASE","ELR"],
+    "StagingLocations": {
+      "DestinationContainer": "/demo/HL7/staged"
+    }
+  },
+  {
+    "FileType": "?",
+    "MessageTypes": [""],
+    "StagingLocations": {
+      "DestinationContainer": "/demo/misc/staged"
+    }
+  }
+]
