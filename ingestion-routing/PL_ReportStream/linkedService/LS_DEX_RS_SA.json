@@ -1,0 +1,22 @@
+{
+    "name": "LS_DEX_RS_SA",
+    "type": "Microsoft.DataFactory/factories/linkedservices",
+    "properties": {
+        "annotations": [],
+        "type": "AzureBlobStorage",
+        "typeProperties": {
+            "sasUri": {
+                "type": "AzureKeyVaultSecret",
+                "store": {
+                    "referenceName": "LS_DEX_RS_Azure_Keyvault",
+                    "type": "LinkedServiceReference"
+                },
+                "secretName": "ReportStreamSASURI"
+            }
+        },
+        "connectVia": {
+            "referenceName": "SelfHosted-IR",
+            "type": "IntegrationRuntimeReference"
+        }
+    }
+}

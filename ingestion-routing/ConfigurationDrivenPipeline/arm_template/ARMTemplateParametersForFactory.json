@@ -1,0 +1,54 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "value": "cmodt13adf"
+        },
+        "LS_ConfigDB_connectionString": {
+            "value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=dex-rs-config-sql.database.windows.net;Initial Catalog=dex-rs-config-db;User ID=configadmin"
+        },
+        "LS_AZ_SQL_SRC_connectionString": {
+            "value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().SqlServerName};Initial Catalog=@{linkedService().SqlDBName};User ID=@{linkedService().SqlUserName}"
+        },
+        "LS_ADLS_SRC_properties_typeProperties_url": {
+            "value": "@{linkedService().InstanceURL}"
+        },
+        "LS_ADLS_TGT_properties_typeProperties_url": {
+            "value": "@{linkedService().InstanceURL}"
+        },
+        "LS_KV_properties_typeProperties_baseUrl": {
+            "value": "@{linkedService().keyVaultURL}"
+        },
+        "Event_Trigger_properties_typeProperties_scope": {
+            "value": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc"
+        },
+        "ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "value": "@trigger().outputs.body.fileName"
+        },
+        "ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "value": "ADLS_TO_ADLS"
+        },
+        "ReportStream_Ingestion_properties_typeProperties_scope": {
+            "value": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc"
+        },
+        "trigger1_properties_typeProperties_scope": {
+            "value": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc"
+        },
+        "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "value": "@trigger().outputs.body.fileName"
+        },
+        "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "value": "ADLS_TO_ADLS"
+        },
+        "Other_Trigger_properties_typeProperties_scope": {
+            "value": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc1"
+        },
+        "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "value": "NA"
+        },
+        "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "value": "AZ_SQL_TO_ADLS"
+        }
+    }
+}

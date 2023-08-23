@@ -1,0 +1,11 @@
+{
+    "name": "LS_DEX_RS_Azure_Keyvault",
+    "type": "Microsoft.DataFactory/factories/linkedservices",
+    "properties": {
+        "annotations": [],
+        "type": "AzureKeyVault",
+        "typeProperties": {
+            "baseUrl": "https://ocio-ede-rst-dev-vault.vault.azure.net/"
+        }
+    }
+}
