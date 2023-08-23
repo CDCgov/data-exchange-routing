@@ -7,6 +7,7 @@ The currently implemented functions and their [types](https://learn.microsoft.co
 * [Orchestrator](#orchestrator) - Orchestrator Function - the main workhorse of the pipeline
 * [Decompressor](#decompressor) - Activitiy Function - unzips the ingested file, if applicable
 * [Generic Validator](#generic-validator) - Activity Function - validates properties of the file without opening it, such as file name
+* [Store Reporting Event](#store-reporting-event) - Entity Function - consumes reporting events and adds them to cosmosDB
 
 # Internal Router
 **Type**: Entity<br>
@@ -289,3 +290,9 @@ Each found file (or the single original if not a ZIP) is then associated with br
 **Code**: [FnCSVValidationGeneric.kt](src/main/kotlin/gov/cdc/dex/csv/functions/activity/FnCSVValidationGeneric.kt)
 
 This function validates the file is present in the container and the name ends with ".csv"
+
+# Store Reporting Event
+**Type**: Entity<br>
+**Code**: [FnStoreReportingEvent.kt](src/main/kotlin/gov/cdc/dex/csv/functions/FnStoreReportingEvent.kt)
+
+This function stores events for reporting in a CosmosDB 
