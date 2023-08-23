@@ -5,13 +5,14 @@ import com.microsoft.azure.functions.annotation.FunctionName
 import com.microsoft.durabletask.Task
 import com.microsoft.durabletask.TaskOrchestrationContext
 import com.microsoft.durabletask.azurefunctions.DurableOrchestrationTrigger
-import com.azure.storage.queue.QueueClient
-import com.azure.storage.queue.QueueClientBuilder
-import com.azure.storage.queue.QueueServiceClient
-import com.azure.storage.queue.QueueServiceClientBuilder
-import com.azure.storage.queue.models.SendMessageResult
+import com.azure.messaging.eventhubs.EventData
+import com.azure.messaging.eventhubs.EventHubClientBuilder
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.ObjectWriter 
 
 import gov.cdc.dex.csv.dtos.ActivityInput
 import gov.cdc.dex.csv.dtos.ActivityOutput
@@ -110,7 +111,7 @@ class FnOrchestrator {
             }
 
             //send Reporting Event
-            sendReportEvent(stepInput.common.params.currentFileUrl, stepNumber, errorMessage, taskContext, functionContext)
+            sendReportEvent(globalParams.originalFileUrl, stepNumber, errorMessage, taskContext, functionContext)
 
             if(errorMessage != null){
                 log(level=Level.SEVERE, msg="Step ${stepNumber} had error $errorMessage", taskContext=taskContext, functionContext=functionContext)
@@ -224,19 +225,46 @@ class FnOrchestrator {
         functionContext:ExecutionContext
     ){
         log(Level.INFO, "sending report event",null,taskContext,functionContext)
-        val cosmosDBConnectionString = EnvironmentParam.INGEST_BLOB_CONNECTION.getSystemValue()
+        val connectionString = "Endpoint=sb://dex-csv-event-namespace.servicebus.windows.net/;SharedAccessKeyName=dex-csv-event-access;SharedAccessKey=9CJdX0N5On2swY/X+7LHYAyo7379SVsvx+AEhK/tzds="
+        val eventHubName = "dex-csv-reporting-events"
 
-        val queueClient:QueueClient = QueueClientBuilder()
-            .connectionString(cosmosDBConnectionString)
-            .queueName("dexcsv-reportevents")
-            .buildClient();
-        log(Level.INFO, "queue client created", null, taskContext, functionContext)
-        val reportEvent = ReportingEvent(fileName,stepNumber,errorMessage)
+        //Create Reporting Event
+        var reportItem:ReportingEvent = ReportingEvent(fileName, stepNumber, errorMessage)
+        //Nothing can be null apparently
+        if (fileName == null){
+            reportItem.currentFile = "unknown"
+        }    
+        if (stepNumber == null){
+            reportItem.stepNumber = "unknown"
+        }
+        if(errorMessage == null){
+            reportItem.errorMessage = "No errors"
+        }
 
+        EnvironmentParam.EVENTHUB_NAME_REPORTINGEVENT.getSystemValue()
+        EnvironmentParam.EVENTHUB_CONNECTION.getSystemValue()
+
+        // create a producer client
+        val producerClient = EventHubClientBuilder()
+            .connectionString(connectionString, eventHubName)
+            .buildProducerClient();
+
+        // create a batch
+        var eventDataBatch = producerClient.createBatch();
+        
+        //create message and add to batch
         val objectMapper = jacksonObjectMapper()
+        val message:String = objectMapper.writeValueAsString(reportItem)
+        log(Level.INFO, "event: " + message, null, taskContext, functionContext)
+        val eventData = EventData(message)
 
-        val result = queueClient.sendMessage(objectMapper.writeValueAsString(reportEvent))
+        // try to add the event to the batch
+        eventDataBatch.tryAdd(eventData)
 
-        log(Level.SEVERE, "event "+result.getMessageId()+" created in "+"dexcsv-reportevents",null,taskContext,functionContext)
+        // send the event
+        if (eventDataBatch.getCount() > 0) {
+            producerClient.send(eventDataBatch);
+        }
+        producerClient.close();
     }
 }

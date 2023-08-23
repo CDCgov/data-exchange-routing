@@ -20,6 +20,9 @@
 		<durabletask.azure.functions.version>1.1.0</durabletask.azure.functions.version>
         <azure.storage.blob.version>12.22.2</azure.storage.blob.version>
         <azure.storage.queue.version>12.18.0</azure.storage.queue.version>
+        <azure.messaging.eventhubs.version>5.15.0</azure.messaging.eventhubs.version>
+        <azure.identity.version>1.9.1</azure.identity.version>
+        <azure.cosmos.version>4.48.1</azure.cosmos.version>
 
 		<jackson.module.kotlin.version>2.12.3</jackson.module.kotlin.version>
         <gson.version>2.10.1</gson.version>
@@ -54,9 +57,19 @@
             <version>${azure.storage.blob.version}</version>
         </dependency>
         <dependency>
+		    <groupId>com.azure</groupId>
+		    <artifactId>azure-messaging-eventhubs</artifactId>
+		    <version>${azure.messaging.eventhubs.version}</version>
+		</dependency>
+        <dependency>
             <groupId>com.azure</groupId>
-            <artifactId>azure-storage-queue</artifactId>
-            <version>${azure.storage.queue.version}</version>
+            <artifactId>azure-identity</artifactId>
+            <version>${azure.identity.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-cosmos</artifactId>
+            <version>${azure.cosmos.version}</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
@@ -65,6 +78,12 @@
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>org.owasp.encoder</groupId>
+            <artifactId>encoder-esapi</artifactId>
+            <version>1.2.1</version>
+        </dependency>
+
 
         <!-- Needed for Azure to function correctly -->
         <dependency>

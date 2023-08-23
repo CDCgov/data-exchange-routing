@@ -8,7 +8,9 @@ enum class EnvironmentParam(val paramKey:String){
     REDIS_CACHE_PORT("RedisCachePort"),
     REDIS_CACHE_URL("RedisCacheURL"),
     COSMOSDB_CONNECTION("CosmosDBConnection"),
-    COSMOSDB_KEY("CosmosDBKey");
+    COSMOSDB_KEY("CosmosDBKey"),
+    EVENTHUB_CONNECTION("EventHubConnection"),
+    EVENTHUB_NAME_REPORTINGEVENT("EventHubName_ReportingEvent");
 
     fun getSystemValue():String{
         val value = System.getenv(paramKey) 
