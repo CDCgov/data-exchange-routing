@@ -1,0 +1,169 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": "Data Factory name",
+            "defaultValue": "cmodt13adf"
+        },
+        "LS_ConfigDB_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'LS_ConfigDB'",
+            "defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=dex-rs-config-sql.database.windows.net;Initial Catalog=dex-rs-config-db;User ID=configadmin"
+        },
+        "LS_AZ_SQL_SRC_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'LS_AZ_SQL_SRC'",
+            "defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().SqlServerName};Initial Catalog=@{linkedService().SqlDBName};User ID=@{linkedService().SqlUserName}"
+        },
+        "LS_ADLS_SRC_properties_typeProperties_url": {
+            "type": "string",
+            "defaultValue": "@{linkedService().InstanceURL}"
+        },
+        "LS_ADLS_TGT_properties_typeProperties_url": {
+            "type": "string",
+            "defaultValue": "@{linkedService().InstanceURL}"
+        },
+        "LS_KV_properties_typeProperties_baseUrl": {
+            "type": "string",
+            "defaultValue": "@{linkedService().keyVaultURL}"
+        },
+        "Event_Trigger_properties_typeProperties_scope": {
+            "type": "string",
+            "defaultValue": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc"
+        },
+        "ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "type": "string",
+            "defaultValue": "@trigger().outputs.body.fileName"
+        },
+        "ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "type": "string",
+            "defaultValue": "ADLS_TO_ADLS"
+        },
+        "ReportStream_Ingestion_properties_typeProperties_scope": {
+            "type": "string",
+            "defaultValue": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc"
+        },
+        "trigger1_properties_typeProperties_scope": {
+            "type": "string",
+            "defaultValue": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc"
+        },
+        "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "type": "string",
+            "defaultValue": "@trigger().outputs.body.fileName"
+        },
+        "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "type": "string",
+            "defaultValue": "ADLS_TO_ADLS"
+        },
+        "Other_Trigger_properties_typeProperties_scope": {
+            "type": "string",
+            "defaultValue": "/subscriptions/ea443012-82c8-442f-9236-f6b19b52c053/resourceGroups/cmod-s4t13-eus/providers/Microsoft.Storage/storageAccounts/stagestorageaccountsrc1"
+        },
+        "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+            "type": "string",
+            "defaultValue": "NA"
+        },
+        "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+            "type": "string",
+            "defaultValue": "AZ_SQL_TO_ADLS"
+        },
+        "containerUri": {
+            "type": "string",
+            "metadata": "URI to storage account containing linked ARM templates"
+        },
+        "containerSasToken": {
+            "type": "string",
+            "metadata": "Sas token to storage account containing linked ARM templates"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+    },
+    "resources": [
+        {
+            "name": "cmodt13adf_ArmTemplate_0",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2018-02-01",
+            "properties": {
+                "mode": "incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "factoryName": {
+                        "value": "[parameters('factoryName')]"
+                    },
+                    "LS_ConfigDB_connectionString": {
+                        "value": "[parameters('LS_ConfigDB_connectionString')]"
+                    },
+                    "LS_AZ_SQL_SRC_connectionString": {
+                        "value": "[parameters('LS_AZ_SQL_SRC_connectionString')]"
+                    },
+                    "LS_KV_properties_typeProperties_baseUrl": {
+                        "value": "[parameters('LS_KV_properties_typeProperties_baseUrl')]"
+                    },
+                    "trigger1_properties_typeProperties_scope": {
+                        "value": "[parameters('trigger1_properties_typeProperties_scope')]"
+                    },
+                    "LS_ADLS_SRC_properties_typeProperties_url": {
+                        "value": "[parameters('LS_ADLS_SRC_properties_typeProperties_url')]"
+                    },
+                    "LS_ADLS_TGT_properties_typeProperties_url": {
+                        "value": "[parameters('LS_ADLS_TGT_properties_typeProperties_url')]"
+                    },
+                    "Event_Trigger_properties_typeProperties_scope": {
+                        "value": "[parameters('Event_Trigger_properties_typeProperties_scope')]"
+                    },
+                    "ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+                        "value": "[parameters('ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_TriggerDetails')]"
+                    },
+                    "ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+                        "value": "[parameters('ReportStream_Ingestion_properties_PL_ROUTING_MASTER_parameters_DataTransferType')]"
+                    },
+                    "ReportStream_Ingestion_properties_typeProperties_scope": {
+                        "value": "[parameters('ReportStream_Ingestion_properties_typeProperties_scope')]"
+                    }
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "cmodt13adf_ArmTemplate_1",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2018-02-01",
+            "properties": {
+                "mode": "incremental",
+                "templateLink": {
+                    "uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "factoryName": {
+                        "value": "[parameters('factoryName')]"
+                    },
+                    "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+                        "value": "[parameters('Other_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails')]"
+                    },
+                    "Other_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+                        "value": "[parameters('Other_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType')]"
+                    },
+                    "Other_Trigger_properties_typeProperties_scope": {
+                        "value": "[parameters('Other_Trigger_properties_typeProperties_scope')]"
+                    },
+                    "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails": {
+                        "value": "[parameters('APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_TriggerDetails')]"
+                    },
+                    "APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType": {
+                        "value": "[parameters('APP1_SQL_DATA_Trigger_properties_PL_ROUTING_MASTER_parameters_DataTransferType')]"
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', 'cmodt13adf_ArmTemplate_0')]"
+            ]
+        }
+    ]
+}

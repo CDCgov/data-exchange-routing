@@ -1,0 +1,6 @@
+selected resource name:		PL_ReportStream
+selected resource type:		pipeline
+factory name:			edav-dev-dex-factory
+factory location:		eastus
+subscription id:		b6085d96-6bb5-4e70-890c-e026d0cb1d1a
+time of download (UTC):		Thu, 17 Aug 2023 13:43:58 GMT

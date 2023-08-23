@@ -1,1 +1,3 @@
-Directory for Non-HL7 Orchestration Functions
+Directory for Non-HL7 Functions
+
+Currently, all functions fall within the same function app, and thus same [source directory](fns-csv-pipeline). This is because we are using [Durable Functions](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-overview), which the [Orchestrator](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-orchestrations) can only call activity functions within the same function app. This could theoretically be handled by making all functions HTTP endpoints and having the Durable Activity functions only make HTTP calls, but we have not tested this approach.

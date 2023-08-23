@@ -1,0 +1,12 @@
+{
+    "name": "SelfHosted-IR",
+    "properties": {
+        "type": "SelfHosted",
+        "typeProperties": {
+            "linkedInfo": {
+                "resourceId": "/subscriptions/b6085d96-6bb5-4e70-890c-e026d0cb1d1a/resourcegroups/OCIO-DAV-DEV/providers/Microsoft.DataFactory/factories/EDAV-Dev-Factory/integrationruntimes/IntProxy",
+                "authorizationType": "Rbac"
+            }
+        }
+    }
+}

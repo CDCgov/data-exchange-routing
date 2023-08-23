@@ -1,0 +1,27 @@
+{
+    "name": "Report_Stream_DS",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_DEX_RS_SA",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobStorageLocation",
+                "fileName": {
+                    "value": "@pipeline().parameters.fileName",
+                    "type": "Expression"
+                },
+                "container": "dex"
+            },
+            "columnDelimiter": ",",
+            "escapeChar": "\\",
+            "firstRowAsHeader": true,
+            "quoteChar": "\""
+        },
+        "schema": []
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}
