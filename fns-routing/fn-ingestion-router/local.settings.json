@@ -1,14 +1,14 @@
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureEventHubConnectionString": "**scrubbed**",
-    "AzureEventHubConsumerGroup": "**scrubbed**",
-    "AzureEventHubName": "**scrubbed**",
-    "AzureWebJobsStorage": "**scrubbed**",
-    "FUNCTIONS_WORKER_RUNTIME": "**scrubbed**",
-    "BlobDestinationStorageAccountName": "**scrubbed**",
-    "BlobDestinationContainerName": "**scrubbed**",
-    "BlobIngestStorageAccountName": "**scrubbed**",
-    "BlobIngestContainerName": "**scrubbed**"
+    "FUNCTIONS_WORKER_RUNTIME": "java",
+    "EventHubConnectionString": "change-me",
+    "EventHubConsumerGroup": "change-me",
+    "EventHubReceiveName": "dev-routing-file-dropped",
+    "RouteBlobIngestConnectionString": "change-me",
+    "RouteBlobIngestContainerName": "dex-hl7-hl7ingress",
+    "RouteBlobDestinationConnectionString": "change-me",
+    "RouteBlobBlobDestinationContainerName": "hl7ingress"
   }
 }
+
