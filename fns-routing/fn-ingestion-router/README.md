@@ -1,5 +1,5 @@
 
-# Router Function for the HL7 Pipeline
+# Router Function for the DEX Pipeline
 
 This service receives HL7 and CSV data uploaded from various programs and sources and reroutes them to DEX pipeline ingress container.
 	
