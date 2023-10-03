@@ -10,7 +10,7 @@ The content of the files is not validated.
 
 fileconfigs.json in resources folder contains the mappings for message_type from the files' metadata and the output folders.  
 
-Accepted message type are CASE and ELR for HL7 files and empty message type for CSV
+Accepted message types are CASE and ELR for HL7 files and empty message type for CSV
 
 ## fileconfigs.json:
 ``` json
