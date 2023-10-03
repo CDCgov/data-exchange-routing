@@ -3,24 +3,22 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gov.cdc.dataexchange.router</groupId>
     <artifactId>fns-ingestion-router</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.0.29-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>11</java.version>
-        <kotlin.version>1.7.20</kotlin.version>
-        <azure.functions.maven.plugin.version>1.24.0</azure.functions.maven.plugin.version>
+        <functionAppName>ocio-ede-${environment-id}-routing-processor</functionAppName>
+        <java.version>17</java.version>
+        <kotlin.version>1.9.0</kotlin.version>
+        <azure.functions.maven.plugin.version>1.26.0</azure.functions.maven.plugin.version>
+        <azure.functions.java.library.version>3.0.0</azure.functions.java.library.version>
         <azure.storage.blob.version>12.22.2</azure.storage.blob.version>
         <azure.identity.version>1.9.0</azure.identity.version>
-        <azure.functions.java.library.version>3.0.0</azure.functions.java.library.version>
+        <slf4j.version>2.0.5</slf4j.version>
         <gson.version>2.10.1</gson.version>
-        <functionResourceGroup>ocio-ede-dev-moderate-hl7-rg</functionResourceGroup>
-        <functionServicePlan>ocio-ede-dev-routing-service-plan</functionServicePlan>
-        <functionResourceGroup>ocio-ede-dev-moderate-hl7-rg</functionResourceGroup>
-        <functionAppServicePlanName>ocio-ede-dev-routing-service-plan</functionAppServicePlanName>
-        <functionAppName>ocio-ede-dev-routing-processor</functionAppName>
-        <functionRegion>eastus</functionRegion>
+        <functionServicePlan>ocio-ede-${environment-id}-routing-service-plan</functionServicePlan>
+        <lib-dex-commons.version>1.0.20-SNAPSHOT</lib-dex-commons.version>
     </properties>
 
     <dependencies>
@@ -29,7 +27,7 @@
             <artifactId>kotlin-stdlib</artifactId>
             <version>${kotlin.version}</version>
         </dependency>
-        
+
         <!-- Azure -->
         <dependency>
             <groupId>com.microsoft.azure.functions</groupId>
@@ -46,14 +44,27 @@
             <artifactId>azure-identity</artifactId>
             <version>${azure.identity.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.10</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
         <!-- Misc -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>gov.cdc.dex</groupId>
+            <artifactId>lib-dex-commons</artifactId>
+            <version>${lib-dex-commons.version}</version>
+        </dependency>
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -68,11 +79,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-			<groupId>org.jetbrains.kotlin</groupId>
-			<artifactId>kotlin-test-junit5</artifactId>
-			<version>${kotlin.version}</version>
-			<scope>test</scope>
-		</dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-test-junit5</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
@@ -81,11 +92,6 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <version>2.20.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
             <version>2.20.0</version>
         </dependency>
     </dependencies>
@@ -99,7 +105,7 @@
                 <artifactId>azure-functions-maven-plugin</artifactId>
                 <version>${azure.functions.maven.plugin.version}</version>
                 <configuration>
-					<!-- https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details -->
+                    <!-- https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details -->
                     <appName>${functionAppName}</appName>
                     <resourceGroup>${functionResourceGroup}</resourceGroup>
                     <appServicePlanName>${functionServicePlan}</appServicePlanName>
@@ -121,12 +127,28 @@
                     </runtime>
                     <appSettings>
                         <property>
+                            <name>FN_VERSION</name>
+                            <value>${project.version}</value>
+                        </property>
+                        <property>
+                            <name>WEBSITE_RUN_FROM_PACKAGE</name>
+                            <value>1</value>
+                        </property>
+                        <property>
                             <name>FUNCTIONS_EXTENSION_VERSION</name>
                             <value>~4</value>
                         </property>
                         <property>
                             <name>FUNCTIONS_WORKER_RUNTIME</name>
                             <value>java</value>
+                        </property>
+                        <property>
+                            <name>APPLICATIONINSIGHTS_ENABLE_AGENT</name>
+                            <value>true</value>
+                        </property>
+                        <property>
+                            <name>AzureFunctionsJobHost__logging__logLevel__Host.Function.Console</name>
+                            <value>None</value>
                         </property>
                     </appSettings>
                 </configuration>
@@ -210,6 +232,23 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.1</version>
+                <configuration>
+                    <argLine> --illegal-access=permit </argLine>
+                    <testFailureIgnore>true</testFailureIgnore>
+                    <forkCount>2</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <argLine>${surefireArgLine}</argLine>
+                    <environmentVariables>
+                        <FN_VERSION>${project.version}</FN_VERSION>
+                        <EventHubConnectionString>${ehString}</EventHubConnectionString>
+                        <EventHubReceiveName>dev-routing-file-dropped</EventHubReceiveName>
+                        <EventHubConsumerGroup>ocio-ede-dev-routing-processor-cg-001</EventHubConsumerGroup>
+                        <RouteBlobIngestConnectionString>${routeBlobIngestConnectionString}</RouteBlobIngestConnectionString>
+                        <RouteBlobIngestContainerName>dex-hl7-hl7ingress</RouteBlobIngestContainerName>
+                        <RouteBlobDestinationConnectionString>${blobIngestConnectionString}</RouteBlobDestinationConnectionString>
+                        <RouteBlobDestinationContainerName>hl7ingress</RouteBlobDestinationContainerName>
+                    </environmentVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

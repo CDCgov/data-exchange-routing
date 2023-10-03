@@ -3,21 +3,21 @@
     "FileType": "CSV",
     "MessageTypes": [""],
     "StagingLocations": {
-      "DestinationContainer": "/demo/CSV/staged"
+      "DestinationContainer": "/dex-routing/CSV"
     }
   },
   {
     "FileType": "HL7",
     "MessageTypes": ["CASE","ELR"],
     "StagingLocations": {
-      "DestinationContainer": "/demo/HL7/staged"
+      "DestinationContainer": "/dex-routing/HL7"
     }
   },
   {
     "FileType": "?",
     "MessageTypes": [""],
     "StagingLocations": {
-      "DestinationContainer": "/demo/misc/staged"
+      "DestinationContainer": "/dex-routing/misc"
     }
   }
 ]
