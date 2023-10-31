@@ -30,10 +30,4 @@ The retrieval query is based on destination_id and event properties from the met
             "destinationFolder": "..."
         }
     ],
-    "id": "aa443941-a4b1-44d9-95d8-c1f7911c5c9c",
-    "_rid": "OL0QAI3HJ7YBAAAAAAAAAA==",
-    "_self": "dbs/OL0QAA==/colls/OL0QAI3HJ7Y=/docs/OL0QAI3HJ7YBAAAAAAAAAA==/",
-    "_etag": "\"5a007d27-0000-0100-0000-654100bd0000\"",
-    "_attachments": "attachments/",
-    "_ts": 1698758845
 }```
