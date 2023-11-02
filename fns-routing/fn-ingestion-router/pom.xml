@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gov.cdc.dataexchange.router</groupId>
     <artifactId>fns-ingestion-router</artifactId>
-    <version>0.0.29-SNAPSHOT</version>
+    <version>0.0.31-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
@@ -17,8 +17,8 @@
         <azure.identity.version>1.9.0</azure.identity.version>
         <slf4j.version>2.0.5</slf4j.version>
         <gson.version>2.10.1</gson.version>
-        <functionServicePlan>ocio-ede-${environment-id}-routing-service-plan</functionServicePlan>
-        <lib-dex-commons.version>1.0.20-SNAPSHOT</lib-dex-commons.version>
+        <functionResourceGroup>ocio-ede-dev-moderate-hl7-rg</functionResourceGroup>
+        <functionRegion>eastus</functionRegion>
     </properties>
 
     <dependencies>
@@ -45,6 +45,11 @@
             <version>${azure.identity.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-cosmos</artifactId>
+            <version>4.48.2</version>
+        </dependency>
+        <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>1.2.10</version>
@@ -59,11 +64,6 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>gov.cdc.dex</groupId>
-            <artifactId>lib-dex-commons</artifactId>
-            <version>${lib-dex-commons.version}</version>
         </dependency>
         <!-- Test -->
         <dependency>
@@ -108,12 +108,13 @@
                     <!-- https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details -->
                     <appName>${functionAppName}</appName>
                     <resourceGroup>${functionResourceGroup}</resourceGroup>
-                    <appServicePlanName>${functionServicePlan}</appServicePlanName>
+                    <appServicePlanName>ocio-ede-${environment-id}-routing-service-plan</appServicePlanName>
+                    <subscriptionId>${subscriptionID}</subscriptionId>
                     <region>${functionRegion}</region>
-                    <auth>
-                        <type>service_principal</type>
-                        <serverId>azure-service-principal</serverId>
-                    </auth>
+                    <!--                <auth>
+                                            <type>service_principal</type>
+                                            <serverId>azure-service-principal</serverId>
+                                        </auth> -->
                     <!-- function pricingTier, default to be consumption if not specified -->
                     <!-- refers https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details#supported-pricing-tiers for all valid values -->
                     <!-- <pricingTier></pricingTier> -->
@@ -123,7 +124,7 @@
                     <runtime>
                         <!-- runtime os, could be windows, linux or docker-->
                         <os>linux</os>
-                        <javaVersion>11</javaVersion>
+                        <javaVersion>${java.version}</javaVersion>
                     </runtime>
                     <appSettings>
                         <property>
@@ -145,6 +146,10 @@
                         <property>
                             <name>APPLICATIONINSIGHTS_ENABLE_AGENT</name>
                             <value>true</value>
+                        </property>
+                        <property>
+                            <name>ApplicationInsightsAgent_EXTENSION_VERSION</name>
+                            <value>~3</value>
                         </property>
                         <property>
                             <name>AzureFunctionsJobHost__logging__logLevel__Host.Function.Console</name>
@@ -240,13 +245,9 @@
                     <argLine>${surefireArgLine}</argLine>
                     <environmentVariables>
                         <FN_VERSION>${project.version}</FN_VERSION>
-                        <EventHubConnectionString>${ehString}</EventHubConnectionString>
+                        <EventHubConnectionString>${routeEhString}</EventHubConnectionString>
                         <EventHubReceiveName>dev-routing-file-dropped</EventHubReceiveName>
                         <EventHubConsumerGroup>ocio-ede-dev-routing-processor-cg-001</EventHubConsumerGroup>
-                        <RouteBlobIngestConnectionString>${routeBlobIngestConnectionString}</RouteBlobIngestConnectionString>
-                        <RouteBlobIngestContainerName>dex-hl7-hl7ingress</RouteBlobIngestContainerName>
-                        <RouteBlobDestinationConnectionString>${blobIngestConnectionString}</RouteBlobDestinationConnectionString>
-                        <RouteBlobDestinationContainerName>hl7ingress</RouteBlobDestinationContainerName>
                     </environmentVariables>
                 </configuration>
             </plugin>
