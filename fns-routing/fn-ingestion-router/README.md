@@ -12,7 +12,7 @@ The retrieval query is based on destination_id and event properties from the met
 
 
 ## dex-routing cosmos db
-## routing-configs container:
+## route-config container:
 ``` json
 {
     "destinationId": "dex-hl7",
@@ -30,5 +30,12 @@ The retrieval query is based on destination_id and event properties from the met
             "destinationFolder": "..."
         }
     ],
+}
+```
+## storage-account container:   
+```
+{
+    "storageAccount": "ocioederoutingdatasadev",
+    "connectionString": "..."
 }
 ```

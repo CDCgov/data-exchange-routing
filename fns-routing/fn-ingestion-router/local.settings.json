@@ -1,11 +1,7 @@
 {
   "IsEncrypted": false,
   "Values": {
-    "FUNCTIONS_WORKER_RUNTIME": "java",
-    "AzureEventHubConnectionString": "change-me",
-    "AzureWebJobsStorage": "change-me",
-    "AzureEventHubConsumerGroup": "change-me",
-    "AzureEventHubName": "change-me"
+    "FUNCTIONS_WORKER_RUNTIME": "java"
   }
 }
 

@@ -2,17 +2,18 @@ package gov.cdc.dex.router
 
 import com.azure.cosmos.*
 import com.azure.cosmos.models.CosmosQueryRequestOptions
+import com.azure.storage.blob.BlobClient
 
 data class EventSchema(
-        val data    : EventData
+    val data    : EventData
 )
 
 data class EventData(
-        val url     : String
+    val url     : String
 )
 
 class Config {
-    var destinationStorageAccount: String? = null
+    var destinationConnectionString: String? = null
     var destinationContainer: String? = null
     var destinationFolder: String? = null
 }
@@ -25,12 +26,29 @@ class RouteConfig {
     var routes: Array<Config> = arrayOf()
 }
 
-data class BlobURI(
-        val host:String,
-        val storageAccount:String,
-        val containerName:String,
-        val fileName:String
-)
+class StorageConfig {
+    var id: String? = null
+    var storageAccount: String? = null
+    var connectionString: String? = null
+}
+
+data class RouteContext(val message:String, val cosmosDBClient:CosmosDBClient, val logger:java.util.logging.Logger) {
+    lateinit var sourceStorageAccount:String
+    lateinit var sourceContainerName:String
+    lateinit var sourceFileName:String
+
+    lateinit var sourceMetadata: MutableMap<String,String>
+    lateinit var destinationId:String
+    lateinit var event:String
+
+    lateinit var routingConfig:RouteConfig
+
+    lateinit var sourceStorageConfig: StorageConfig
+    lateinit var sourceBlob: BlobClient
+
+    var error:String? = null
+}
+
 
 class CosmosDBClient {
     companion object {
@@ -38,23 +56,25 @@ class CosmosDBClient {
         private val cosmosKey = System.getenv("CosmosDBKey")!!
         private val cosmosRegion = System.getenv("CosmosDBRegion")!!
         private val databaseName = System.getenv("CosmosDBId")
-        private val containerName = System.getenv("CosmosDBContainer")
 
         private val cosmosClient: CosmosClient by lazy {
             CosmosClientBuilder()
-                    .endpoint(cosmosEndpoint)
-                    .key(cosmosKey)
-                    .consistencyLevel(ConsistencyLevel.EVENTUAL)
-                    .preferredRegions(listOf(cosmosRegion))
-                    .directMode()
-                    .buildClient()
+                .endpoint(cosmosEndpoint)
+                .key(cosmosKey)
+                .consistencyLevel(ConsistencyLevel.EVENTUAL)
+                .preferredRegions(listOf(cosmosRegion))
+                .gatewayMode()
+                .buildClient()
         }
 
         private val database: CosmosDatabase by lazy {
             cosmosClient.getDatabase(databaseName)
         }
-        val container: CosmosContainer by lazy {
-            database.getContainer(containerName)
+        val storageContainer: CosmosContainer by lazy {
+            database.getContainer(System.getenv("CosmosDBStorageContainer"))
+        }
+        val routeContainer: CosmosContainer by lazy {
+            database.getContainer(System.getenv("CosmosDBRouteContainer"))
         }
 
         fun close() {
@@ -63,10 +83,26 @@ class CosmosDBClient {
     }
 
     fun readRouteConfig(destIdEvent: String): RouteConfig? {
-        val iterable = container.queryItems(
-                "SELECT * FROM c WHERE c.destinationIdEvent = \"${destIdEvent}\"",
-                CosmosQueryRequestOptions(),
-                RouteConfig::class.java)
+        return runQuery(
+            routeContainer,
+            "SELECT * FROM c WHERE c.destinationIdEvent = \"${destIdEvent}\"",
+            RouteConfig::class.java)
+    }
+
+    fun readStorageConfig(account: String): StorageConfig? {
+        return runQuery(
+            storageContainer,
+            "SELECT * FROM c WHERE c.storageAccount = \"${account}\"",
+            StorageConfig::class.java)
+    }
+    private fun <T> runQuery(
+        container:CosmosContainer,
+        query: String,
+        classType: Class<T>): T? {
+
+        val iterable = container.queryItems(query,
+            CosmosQueryRequestOptions(),
+            classType)
 
         return if (iterable.iterator().hasNext()) {
             iterable.iterator().next()
