@@ -10,9 +10,9 @@ class FunctionTest {
     companion object {
         val gson = Gson()
 
-        const val SOURCE_STORAGE_ACCOUNT = "ocioededataexchangedev"
-        const val SOURCE_CONTAINER_NAME = "dex-hl7-hl7ingress"
-        const val SOURCE_FILE_NAME = "dex-routing-unit-test/UNIT-TEST-DO-NOT-DELETE.txt"
+        const val SOURCE_STORAGE_ACCOUNT = "ocioederoutingdatasadev"
+        const val SOURCE_CONTAINER_NAME = "routeingress"
+        const val SOURCE_FILE_NAME = "unit-test/UNIT-TEST-DO-NOT-DELETE.txt"
 
         const val ROUTE_CONFIG =
         """
@@ -31,7 +31,6 @@ class FunctionTest {
         assertEquals(SOURCE_CONTAINER_NAME, context.sourceContainerName)
         assertEquals(SOURCE_FILE_NAME, context.sourceFileName)
     }
-    @Test
     fun testRouting() {
         // on azure it comes from cosmosdb
         val routeConfig = gson.fromJson(ROUTE_CONFIG, RouteConfig::class.java )
