@@ -12,7 +12,7 @@ class FunctionTest {
 
         const val SOURCE_STORAGE_ACCOUNT = "ocioederoutingdatasadev"
         const val SOURCE_CONTAINER_NAME = "routeingress"
-        const val SOURCE_FILE_NAME = "unit-test/UNIT-TEST-DO-NOT-DELETE.txt"
+        const val SOURCE_FILE_NAME = "unit-test/COVID_ELR_BATCH.txt"
 
         const val ROUTE_CONFIG =
         """
@@ -37,7 +37,6 @@ class FunctionTest {
 
         // on azure it comes from cosmosdb
         val storageConfig = gson.fromJson(STORAGE_ACCOUNT, StorageConfig::class.java )
-
         val context = RouteContext("/message.txt".resourceAsText()!!, CosmosDBClient(), Logger.getAnonymousLogger())
         with(RouteIngestedFile()) {
             parseMessage(context)

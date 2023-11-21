@@ -1,5 +1,5 @@
 [{
     "data": {
-        "url": "ttps://ocioederoutingdatasadev.blob.core.windows.net/routeingress/unit-test/UNIT-TEST-DO-NOT-DELETE.txt"
+        "url": "https://ocioederoutingdatasadev.blob.core.windows.net/routeingress/unit-test/COVID_ELR_BATCH.txt"
     }
 }]
