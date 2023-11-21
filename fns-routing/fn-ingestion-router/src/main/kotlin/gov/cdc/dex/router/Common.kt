@@ -3,33 +3,34 @@ package gov.cdc.dex.router
 import com.azure.cosmos.*
 import com.azure.cosmos.models.CosmosQueryRequestOptions
 import com.azure.storage.blob.BlobClient
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 
 data class EventSchema(
-    val data    : EventData
+    val data : EventData
 )
 
 data class EventData(
-    val url     : String
+    val url: String
 )
 
 class Config {
-    var destinationConnectionString: String? = null
-    var destinationContainer: String? = null
-    var destinationFolder: String? = null
+    var destination_connection_string: String? = null
+    var destination_container: String? = null
+    var destination_folder: String? = null
 }
-
-class RouteConfig {
-    var id: String? = null
-    var destinationId: String? = null
-    var event: String? = null
-    var destinationIdEvent:  String? = null
-    var routes: Array<Config> = arrayOf()
-}
+ class RouteConfig {
+     var id: String? = null
+     var destination_id: String? = null
+     var event : String? = null
+     var destination_id_event: String? = null
+     var routes: Array<Config> = arrayOf()
+ }
 
 class StorageConfig {
-    var id: String? = null
-    var storageAccount: String? = null
-    var connectionString: String? = null
+    var id : String? = null
+    var storage_account : String? = null
+    var connection_string: String? = null
 }
 
 data class RouteContext(val message:String, val cosmosDBClient:CosmosDBClient, val logger:java.util.logging.Logger) {
@@ -52,6 +53,8 @@ data class RouteContext(val message:String, val cosmosDBClient:CosmosDBClient, v
 
 class CosmosDBClient {
     companion object {
+        val gson: Gson = GsonBuilder().serializeNulls().create()
+
         private val cosmosEndpoint = System.getenv("CosmosDBConnectionString")!!
         private val cosmosKey = System.getenv("CosmosDBKey")!!
         private val cosmosRegion = System.getenv("CosmosDBRegion")!!
@@ -82,17 +85,18 @@ class CosmosDBClient {
         }
     }
 
+
     fun readRouteConfig(destIdEvent: String): RouteConfig? {
         return runQuery(
             routeContainer,
-            "SELECT * FROM c WHERE c.destinationIdEvent = \"${destIdEvent}\"",
+            "SELECT * FROM c WHERE c.destination_id_event = \"${destIdEvent}\"",
             RouteConfig::class.java)
     }
 
     fun readStorageConfig(account: String): StorageConfig? {
         return runQuery(
             storageContainer,
-            "SELECT * FROM c WHERE c.storageAccount = \"${account}\"",
+            "SELECT * FROM c WHERE c.storage_account = \"${account}\"",
             StorageConfig::class.java)
     }
     private fun <T> runQuery(

@@ -83,11 +83,12 @@ class RouteIngestedFile {
     fun getSourceBlobConfig(context:RouteContext) {
         with (context ) {
             val sourceServiceClient =
-                BlobServiceClientBuilder().connectionString(sourceStorageConfig.connectionString).buildClient()
+                BlobServiceClientBuilder().connectionString(sourceStorageConfig.connection_string).buildClient()
             val sourceContainerClient = sourceServiceClient.getBlobContainerClient(sourceContainerName)
             sourceBlob = sourceContainerClient.getBlobClient(sourceFileName)
 
             sourceMetadata = sourceBlob.properties.metadata
+
             destinationId = sourceMetadata.getOrDefault("meta_destination_id", "?")
             event = sourceMetadata.getOrDefault("meta_ext_event", "?")
         }
@@ -98,6 +99,7 @@ class RouteIngestedFile {
     private fun getDestinationRoutes(context:RouteContext) {
         with (context) {
             val config = context.cosmosDBClient.readRouteConfig("$destinationId-$event")
+
             if ( config != null) {
                 routingConfig = config
             }
@@ -116,11 +118,11 @@ class RouteIngestedFile {
             val destinationFileName = sourceFileName.split("/").last()
             for( route in routingConfig.routes) {
                 val destinationBlobName =
-                    "${route.destinationFolder}/${destinationFileName}"
+                    "${route.destination_folder}/${destinationFileName}"
                 val destinationServiceClient =
-                    BlobServiceClientBuilder().connectionString(route.destinationConnectionString).buildClient()
+                    BlobServiceClientBuilder().connectionString(route.destination_connection_string).buildClient()
                 val destinationContainerClient =
-                    destinationServiceClient.getBlobContainerClient(route.destinationContainer)
+                    destinationServiceClient.getBlobContainerClient(route.destination_container)
                 val destinationBlob =
                     destinationContainerClient.getBlobClient(destinationBlobName)
 
