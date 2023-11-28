@@ -126,5 +126,6 @@ class CosmosDBClient {
             null
         }
     }
-}
 */
+}
+
