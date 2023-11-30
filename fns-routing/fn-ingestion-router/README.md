@@ -11,20 +11,16 @@ This README describes settings on dev environment and it is subject to change as
 ## route-config container:
 ``` json
 {
-    "destinationId": "dex-hl7",
+    "destination_id: "dex-hl7",
     "event": "hl7ingress",
-    "destinationIdEvent": "dex-hl7-hl7ingress",
+    "destination_id_event": "dex-hl7-hl7ingress",
     "routes": [
         {
-            "destinationStorageAccount": "...",
+            "destination_storage_account": "...",
             "destinationContainer": "...",
             "destinationFolder": "..."
         },
-        {
-            "destinationStorageAccount": "...",
-            "destinationContainer": "...",
-            "destinationFolder": "..."
-        }
+        ...
     ],
 }
 ```

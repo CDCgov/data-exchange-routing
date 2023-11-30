@@ -15,22 +15,24 @@ data class EventData(
 )
 
 class Config {
-    var destination_connection_string: String? = null
-    var destination_container: String? = null
-    var destination_folder: String? = null
+    lateinit var destination_storage_account: String
+    lateinit var destination_connection_string: String
+    lateinit var destination_container: String
+    lateinit var destination_folder: String
+    var metadata: Map<String,String>? = null
 }
- class RouteConfig {
-     var id: String? = null
-     var destination_id: String? = null
-     var event : String? = null
-     var destination_id_event: String? = null
-     var routes: Array<Config> = arrayOf()
- }
+class RouteConfig {
+    lateinit var id: String
+    lateinit var destination_id:String
+    lateinit var event : String
+    lateinit var destination_id_event: String
+    var routes: Array<Config> = arrayOf()
+}
 
 class StorageConfig {
-    var id : String? = null
-    var storage_account : String? = null
-    var connection_string: String? = null
+    lateinit var id : String
+    lateinit var storage_account : String
+    lateinit var connection_string: String
 }
 
 data class RouteContext(val message:String, val cosmosDBClient:CosmosDBClient, val logger:java.util.logging.Logger) {
@@ -47,9 +49,8 @@ data class RouteContext(val message:String, val cosmosDBClient:CosmosDBClient, v
     lateinit var sourceStorageConfig: StorageConfig
     lateinit var sourceBlob: BlobClient
 
-    var error:String? = null
+    var errors = mutableListOf<String>()
 }
-
 
 class CosmosDBClient {
     companion object {
@@ -85,34 +86,27 @@ class CosmosDBClient {
         }
     }
 
-
     fun readRouteConfig(destIdEvent: String): RouteConfig? {
-        return runQuery(
-            routeContainer,
-            "SELECT * FROM c WHERE c.destination_id_event = \"${destIdEvent}\"",
-            RouteConfig::class.java)
-    }
-
-    fun readStorageConfig(account: String): StorageConfig? {
-        return runQuery(
-            storageContainer,
-            "SELECT * FROM c WHERE c.storage_account = \"${account}\"",
-            StorageConfig::class.java)
-    }
-    private fun <T> runQuery(
-        container:CosmosContainer,
-        query: String,
-        classType: Class<T>): T? {
-
-        val iterable = container.queryItems(query,
+        val iterable = routeContainer.queryItems("SELECT * FROM c WHERE c.destination_id_event = \"${destIdEvent}\"",
             CosmosQueryRequestOptions(),
-            classType)
-
+            RouteConfig::class.java)
         return if (iterable.iterator().hasNext()) {
             iterable.iterator().next()
         }
         else {
             null
+        }
+    }
+
+    fun readStorageConfig(): Map<String, StorageConfig> {
+        val iterable = storageContainer.queryItems("SELECT * FROM c",
+            CosmosQueryRequestOptions(),
+            StorageConfig::class.java)
+        return if (iterable.iterator().hasNext()) {
+            iterable.associateBy {it.storage_account}
+        }
+        else {
+            mutableMapOf()
         }
     }
 }

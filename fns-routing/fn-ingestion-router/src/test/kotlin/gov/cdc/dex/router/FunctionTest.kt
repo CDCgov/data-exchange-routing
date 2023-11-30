@@ -5,7 +5,8 @@ import org.junit.jupiter.api.Test
 import java.util.logging.Logger
 import kotlin.test.assertEquals
 
-class FunctionTest {
+class
+FunctionTest {
 
     companion object {
         val gson = Gson()
@@ -15,10 +16,10 @@ class FunctionTest {
         const val SOURCE_FILE_NAME = "unit-test/COVID_ELR_BATCH.txt"
 
         const val ROUTE_CONFIG =
-        """
+            """
         """
         const val STORAGE_ACCOUNT =
-        """    
+            """    
         """
     }
 
@@ -34,19 +35,18 @@ class FunctionTest {
     fun testRouting() {
         // on azure it comes from cosmosdb
         val routeConfig = gson.fromJson(ROUTE_CONFIG, RouteConfig::class.java )
+                // on azure it comes from cosmosdb
+                val storageConfig = gson.fromJson(STORAGE_ACCOUNT, StorageConfig::class.java )
+                val context = RouteContext("/message.txt".resourceAsText()!!, CosmosDBClient(), Logger.getAnonymousLogger())
+                with(RouteIngestedFile()) {
+                    parseMessage(context)
 
-        // on azure it comes from cosmosdb
-        val storageConfig = gson.fromJson(STORAGE_ACCOUNT, StorageConfig::class.java )
-        val context = RouteContext("/message.txt".resourceAsText()!!, CosmosDBClient(), Logger.getAnonymousLogger())
-        with(RouteIngestedFile()) {
-            parseMessage(context)
+                    context.sourceStorageConfig = storageConfig
+                    getSourceBlobConfig(context)
 
-            context.sourceStorageConfig = storageConfig
-            getSourceBlobConfig(context)
-
-            context.routingConfig = routeConfig
-            routeSourceBlobToDestination(context)
-        }
-        assertEquals(null, context.error)
+                    context.routingConfig = routeConfig
+                    routeSourceBlobToDestination(context)
+                }
+                assertEquals(true, context.errors.isEmpty())
     }
 }
