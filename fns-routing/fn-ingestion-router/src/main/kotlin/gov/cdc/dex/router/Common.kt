@@ -109,23 +109,5 @@ class CosmosDBClient {
             mutableMapOf()
         }
     }
-
-/*  private fun <T> runQuery(
-        container:CosmosContainer,
-        query: String,
-        classType: Class<T>): T? {
-
-        val iterable = container.queryItems(query,
-            CosmosQueryRequestOptions(),
-            classType)
-
-        return if (iterable.iterator().hasNext()) {
-            iterable.iterator().next()
-        }
-        else {
-            null
-        }
-    }
-*/
 }
 
