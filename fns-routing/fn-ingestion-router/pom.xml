@@ -110,12 +110,10 @@
                     <appServicePlanName>ocio-ede-${environment-id}-routing-service-plan</appServicePlanName>
                     <subscriptionId>${subscriptionID}</subscriptionId>
                     <region>${functionRegion}</region>
-                    <!--
                     <auth>
                         <type>service_principal</type>
                         <serverId>azure-service-principal</serverId>
                     </auth>
-                    -->
                     <!-- function pricingTier, default to be consumption if not specified -->
                     <!-- refers https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details#supported-pricing-tiers for all valid values -->
                     <!-- <pricingTier></pricingTier> -->

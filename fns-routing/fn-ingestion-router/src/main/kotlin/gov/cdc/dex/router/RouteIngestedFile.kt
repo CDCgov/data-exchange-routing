@@ -36,10 +36,6 @@ class RouteIngestedFile {
                 context.logger.severe("DEX::RouteIngested --> File No storage accounts configured")
                 return
             }
-            storageAccountCache.forEach { (key, value)->
-                context.logger.info("DEX:::::::$key, ${value.storage_account}")
-            }
-
             messages.forEach {msg: String ->
                 val routeContext = RouteContext(msg, cosmosDBClient, context.logger)
                 pipe(routeContext,
