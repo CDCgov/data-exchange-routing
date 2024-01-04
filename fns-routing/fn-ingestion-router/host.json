@@ -9,9 +9,7 @@
       "Default":"Information",
       "System": "Information",
       "Microsoft": "Warning",
-      "Azure.Core": "Error",
-      "Host": "Warning",
-      "Azure.Messaging.EventHubs": "Warning"
+      "Host": "Warning"
    }
   },
   "extensions": {

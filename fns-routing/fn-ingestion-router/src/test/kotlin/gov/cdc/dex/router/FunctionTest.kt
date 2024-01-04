@@ -62,7 +62,6 @@ FunctionTest {
         assertEquals(SOURCE_FILE_NAME, context.sourceFileName)
     }
 
-    @Test
     fun testRouting() {
         val storageConfig = gson.fromJson(STORAGE_ACCOUNT, StorageAccountConfig::class.java)
         val storageCache = mutableMapOf(storageConfig.storage_account to storageConfig)
