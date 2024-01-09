@@ -1,16 +1,15 @@
 package gov.cdc.dex.router
 
-import com.azure.storage.blob.BlobServiceClientBuilder
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
+import com.azure.storage.blob.BlobClientBuilder
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
-import java.net.URI
 
 class RouteIngestedFile {
     companion object {
-        val gson: Gson = GsonBuilder().serializeNulls().create()
-        lateinit var storageAccountCache : Map<String, StorageConfig>
+        const val ROUTE_MSG = "DEX::Routing:"
+
+        val cosmosDBConfig = CosmosDBConfig()
+        val sourceSAConfig = SourceSAConfig()
     }
 
     @FunctionName("RouteIngestedFile")
@@ -23,126 +22,107 @@ class RouteIngestedFile {
         messages: List<String>,
         context:ExecutionContext
     ) {
-        context.logger.info("DEX::RouteIngestedFile --> ${messages.size} messages")
+        context.logger.info("$ROUTE_MSG ${messages.size} in")
 
-        var cosmosDBClient:CosmosDBClient? = null
+        val start = System.currentTimeMillis()
+
         var countProcessed = 0
-        try {
-            cosmosDBClient =  CosmosDBClient()
 
-            // cache the storage accounts
-            storageAccountCache = cosmosDBClient.readStorageConfig()
-            if ( storageAccountCache.isEmpty() ) {
-                context.logger.severe("DEX::RouteIngested --> File No storage accounts configured")
-                return
-            }
-            messages.forEach {msg: String ->
-                val routeContext = RouteContext(msg, cosmosDBClient, context.logger)
+        // read caches
+        val routeConfigCache = mutableMapOf<String, RouteConfig>()
+        val storageAccountCache = mutableMapOf<String, StorageAccountConfig>()
+
+        try {
+            messages.forEach {msg ->
+                val routeContext = RouteContext(msg, routeConfigCache, storageAccountCache, context.logger)
                 pipe(routeContext,
                     ::parseMessage,
-                    ::getSourceStorageConfig,
-                    ::getSourceBlobConfig,
-                    ::getDestinationRoutes,
+                    ::validateSourceBlobMeta,
+                    ::validateDestinationRoutes,
                     ::routeSourceBlobToDestination
                 )
                 countProcessed +=  if (routeContext.errors.isEmpty()) 1 else 0
             }
-            context.logger.info("DEX::RouteIngestedFile --> $countProcessed of ${messages.size} processed")
+            context.logger.info("$ROUTE_MSG $countProcessed out of ${messages.size} for ${System.currentTimeMillis()-start}ms")
         } catch (e: Exception) {
-            context.logger.severe(e.message)
-        }
-        finally {
-            cosmosDBClient?.let {CosmosDBClient.close()}
+            context.logger.severe("$ROUTE_MSG ERROR:${e.message}")
         }
     }
 
-    /* Parses the event message and extracts storage account name
-       container name and file name for the source blob
-    */
-    fun parseMessage(context:RouteContext) {
-        with (context) {
-            val eventContent = gson.fromJson(message, Array<EventSchema>::class.java).first()
-
-            val uri = URI(eventContent.data.url)
-            val host = uri.host
-            val path = uri.path.substringAfter("/")
-            val containerName = path.substringBefore("/")
-
-            sourceStorageAccount = host.substringBefore(".blob.core.windows.net")
-            sourceContainerName = path.substringBefore("/")
-            sourceFileName = path.substringAfter("$containerName/")
-        }
-    }
-    /* Retrieves the connection string for the source storage account from CosmosDB
+    /* Validates  blob's metadata
      */
-    private fun getSourceStorageConfig(context:RouteContext) {
+    fun validateSourceBlobMeta(context:RouteContext) {
         with (context ) {
-            val config =  storageAccountCache[sourceStorageAccount]
-            if ( config == null) {
-                logError(this,  "No routing configuration found for $sourceStorageAccount")
-            }
-            else {
-                sourceStorageConfig = config
-            }
-        }
-    }
-
-    /* Creates service client for the source blob and retrieves blob's metadata
-     */
-    fun getSourceBlobConfig(context:RouteContext) {
-        with (context ) {
-            val sourceServiceClient =
-                BlobServiceClientBuilder().connectionString(sourceStorageConfig.connection_string).buildClient()
-            val sourceContainerClient = sourceServiceClient.getBlobContainerClient(sourceContainerName)
-            sourceBlob = sourceContainerClient.getBlobClient(sourceFileName)
-
+            sourceBlob = sourceSAConfig.containerClient.getBlobClient(sourceFileName)
             sourceMetadata = sourceBlob.properties.metadata
 
-            destinationId = sourceMetadata.getOrDefault("meta_destination_id", "?")
-            event = sourceMetadata.getOrDefault("meta_ext_event", "?")
+            destinationId = sourceMetadata.getOrDefault("meta_destination_id", "")
+            event = sourceMetadata.getOrDefault("meta_ext_event", "")
+            if ( destinationId.isEmpty() || event.isEmpty() ) {
+                logContextError(this, "Missing destination_id:${destinationId} or event:$event")
+            }
         }
     }
 
-    /* Retrieves the destination routes from CosmosDB
-       using destinationId and event from the source blob metadata
+    /* Validates the destination routes from CosmosDB
      */
-    private fun getDestinationRoutes(context:RouteContext) {
+    private fun validateDestinationRoutes(context:RouteContext) {
         with (context) {
-            val config = cosmosDBClient.readRouteConfig("$destinationId-$event")
+            val config = getRouteConfig(this)
             if ( config != null ) {
                 routingConfig = config
-                // check routes for valid storage account
-                for (route in routingConfig.routes) {
-                    val cachedAccount = storageAccountCache[route.destination_storage_account]
+                config.routes.forEach { route->
+                    if ( !route.isValid) return@forEach
+
+                    // get sas token for this route
+                    val cachedAccount = getStorageConfig(this, route.destination_storage_account)
                     if (cachedAccount != null) {
-                        route.destination_connection_string = cachedAccount.connection_string
-                    } else {
-                        logError(this, "No storage connection string found for ${route.destination_storage_account}")
+                        route.isValid = true
+                        route.sas = cachedAccount.sas
+                        route.connectionString = cachedAccount.connection_string
+                        route.destinationPath =  if (route.destination_folder == "")
+                            "."
+                        else
+                            foldersToPath(this, route.destination_folder.split("/", "\\"))
+                        if (route.destinationPath.isNotEmpty()) {
+                            route.destinationPath += "/"
+                        }
+                    }
+                    else {
+                        route.isValid = false
+                        logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account}")
                     }
                 }
             }
             else {
-                logError(this,  "No routing configuration found for $destinationId-$event")
+                logContextError(this,  "No routing configuration found for $destinationId-$event")
             }
         }
     }
-    /*  Creates destination blob for each route using connection string, container and
+
+    /*  Creates destination blob for each valid route using container and
         folder name from the route configuration.
         Streams the source blob and updates metadata
      */
     fun routeSourceBlobToDestination(context:RouteContext) {
         with (context) {
             val destinationFileName = sourceFileName.split("/").last()
-            for( route in routingConfig.routes) {
-                val destinationServiceClient =
-                    BlobServiceClientBuilder().connectionString(route.destination_connection_string).buildClient()
+            routingConfig.routes.forEach {route ->
+                if ( !route.isValid) return@forEach
 
-                val destinationContainerClient =
-                    destinationServiceClient.getBlobContainerClient(route.destination_container)
-
-                val destinationBlobName = "${route.destination_folder}/${destinationFileName}"
-                val destinationBlob =
-                    destinationContainerClient.getBlobClient(destinationBlobName)
+                val destinationBlob = if (route.connectionString.isNotEmpty())
+                    BlobClientBuilder()
+                        .connectionString(route.connectionString)
+                        .containerName(route.destination_container)
+                        .blobName("${route.destinationPath}${destinationFileName}")
+                        .buildClient()
+                else
+                    BlobClientBuilder()
+                        .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
+                        .sasToken(route.sas)
+                        .containerName(route.destination_container)
+                        .blobName("${route.destinationPath}${destinationFileName}")
+                        .buildClient()
 
                 val sourceBlobInputStream = sourceBlob.openInputStream()
                 destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
@@ -158,10 +138,38 @@ class RouteIngestedFile {
             }
         }
     }
-    private fun logError(context:RouteContext, error:String) {
+
+    private fun logContextError(context:RouteContext, error:String) {
         with (context) {
             errors += error
-            logger.severe(error)
+            logger.severe("$ROUTE_MSG ERROR: $error")
+        }
+    }
+
+    private fun getStorageConfig(context:RouteContext, saAccount:String):StorageAccountConfig? {
+        return with (context) {
+            var config = storageAccountCache[saAccount]
+            if (config == null) {
+                config = cosmosDBConfig.readStorageAccountConfig(saAccount)
+                if ( config != null) {
+                    storageAccountCache[saAccount] = config
+                }
+            }
+            config
+        }
+    }
+
+    private fun getRouteConfig(context:RouteContext):RouteConfig? {
+        return with (context) {
+            val key = "$destinationId-$event"
+            var config = routeConfigCache[key]
+            if (config == null) {
+                config = cosmosDBConfig.readRouteConfig(key)
+                if (config != null) {
+                    routeConfigCache[key] = config
+                }
+            }
+            config
         }
     }
 }
