@@ -8,7 +8,8 @@ class RouteIngestedFile {
     companion object {
         const val ROUTE_MSG = "DEX::Routing:"
 
-        val cosmosClient = CosmosDBClient()
+        val cosmosDBConfig = CosmosDBConfig()
+        val sourceSAConfig = SourceSAConfig()
     }
 
     @FunctionName("RouteIngestedFile")
@@ -36,7 +37,6 @@ class RouteIngestedFile {
                 val routeContext = RouteContext(msg, routeConfigCache, storageAccountCache, context.logger)
                 pipe(routeContext,
                     ::parseMessage,
-                    ::validateSourceStorageConfig,
                     ::validateSourceBlobMeta,
                     ::validateDestinationRoutes,
                     ::routeSourceBlobToDestination
@@ -49,30 +49,11 @@ class RouteIngestedFile {
         }
     }
 
-    /* Retrieves the source storage account from cache or CosmosDB
-     */
-    private fun validateSourceStorageConfig(context:RouteContext) {
-        val config =  getStorageConfig(context, context.sourceStorageAccount)
-        if ( config != null) {
-            context.sourceStorageConfig = config
-        }
-        else {
-            logContextError(context,  "No storage account configuration found for ${context.sourceStorageAccount}")
-        }
-    }
-
     /* Validates  blob's metadata
      */
     fun validateSourceBlobMeta(context:RouteContext) {
         with (context ) {
-            val config =  storageAccountCache[sourceStorageAccount]
-            sourceBlob = BlobClientBuilder()
-                .endpoint("https://${sourceStorageAccount}.blob.core.windows.net")
-                .sasToken(config?.sas)
-                .containerName(sourceContainerName)
-                .blobName(sourceFileName)
-                .buildClient()
-
+            sourceBlob = sourceSAConfig.containerClient.getBlobClient(sourceFileName)
             sourceMetadata = sourceBlob.properties.metadata
 
             destinationId = sourceMetadata.getOrDefault("meta_destination_id", "")
@@ -92,15 +73,20 @@ class RouteIngestedFile {
                 routingConfig = config
                 config.routes.forEach { route->
                     if ( !route.isValid) return@forEach
+
                     // get sas token for this route
                     val cachedAccount = getStorageConfig(this, route.destination_storage_account)
                     if (cachedAccount != null) {
                         route.isValid = true
                         route.sas = cachedAccount.sas
+                        route.connectionString = cachedAccount.connection_string
                         route.destinationPath =  if (route.destination_folder == "")
                             "."
                         else
                             foldersToPath(this, route.destination_folder.split("/", "\\"))
+                        if (route.destinationPath.isNotEmpty()) {
+                            route.destinationPath += "/"
+                        }
                     }
                     else {
                         route.isValid = false
@@ -124,12 +110,19 @@ class RouteIngestedFile {
             routingConfig.routes.forEach {route ->
                 if ( !route.isValid) return@forEach
 
-                val destinationBlob = BlobClientBuilder()
-                    .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
-                    .sasToken(route.sas)
-                    .containerName(route.destination_container)
-                    .blobName("${route.destinationPath}/${destinationFileName}")
-                    .buildClient()
+                val destinationBlob = if (route.connectionString.isNotEmpty())
+                    BlobClientBuilder()
+                        .connectionString(route.connectionString)
+                        .containerName(route.destination_container)
+                        .blobName("${route.destinationPath}${destinationFileName}")
+                        .buildClient()
+                else
+                    BlobClientBuilder()
+                        .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
+                        .sasToken(route.sas)
+                        .containerName(route.destination_container)
+                        .blobName("${route.destinationPath}${destinationFileName}")
+                        .buildClient()
 
                 val sourceBlobInputStream = sourceBlob.openInputStream()
                 destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
@@ -157,7 +150,7 @@ class RouteIngestedFile {
         return with (context) {
             var config = storageAccountCache[saAccount]
             if (config == null) {
-                config = cosmosClient.readStorageAccountConfig(saAccount)
+                config = cosmosDBConfig.readStorageAccountConfig(saAccount)
                 if ( config != null) {
                     storageAccountCache[saAccount] = config
                 }
@@ -171,7 +164,7 @@ class RouteIngestedFile {
             val key = "$destinationId-$event"
             var config = routeConfigCache[key]
             if (config == null) {
-                config = cosmosClient.readRouteConfig(key)
+                config = cosmosDBConfig.readRouteConfig(key)
                 if (config != null) {
                     routeConfigCache[key] = config
                 }

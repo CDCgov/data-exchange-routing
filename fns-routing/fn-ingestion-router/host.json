@@ -6,11 +6,14 @@
   },
   "logging": {
     "logLevel": {
-      "Default":"Information",
-      "System": "Information",
-      "Microsoft": "Warning",
-      "Host": "Warning"
-   }
+          "default": "Warning",
+          "Function": "Information",
+          "Host": "Error",
+          "Host.Results": "Information",
+          "Worker": "Warning",
+          "Azure.Core": "Error",
+          "Azure.Messaging.EventHubs": "Warning"
+    }
   },
   "extensions": {
     "eventHubs": {

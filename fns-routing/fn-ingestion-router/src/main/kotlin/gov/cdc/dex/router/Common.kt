@@ -4,6 +4,9 @@ import com.azure.cosmos.ConsistencyLevel
 import com.azure.cosmos.CosmosClientBuilder
 import com.azure.cosmos.models.CosmosQueryRequestOptions
 import com.azure.storage.blob.BlobClient
+import com.azure.storage.blob.BlobContainerClient
+import com.azure.storage.blob.BlobServiceClient
+import com.azure.storage.blob.BlobServiceClientBuilder
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import java.net.URI
@@ -26,8 +29,10 @@ class Destination {
     lateinit var destination_container: String
     lateinit var destination_folder: String
     var metadata: Map<String,String>? = null
+
     var destinationPath:String  = ""
     var sas = ""
+    var connectionString = ""
     var isValid = true
 }
 class RouteConfig {
@@ -36,7 +41,8 @@ class RouteConfig {
 
 class StorageAccountConfig {
     lateinit var storage_account:String
-    lateinit var sas:String
+    var connection_string:String = ""
+    var  sas:String = ""
 }
 
 data class RouteContext(
@@ -56,13 +62,23 @@ data class RouteContext(
 
     lateinit var routingConfig:RouteConfig
 
-    lateinit var sourceStorageConfig: StorageAccountConfig
     lateinit var sourceBlob: BlobClient
 
     var errors = mutableListOf<String>()
 }
 
-class CosmosDBClient {
+class SourceSAConfig {
+        private val containerName = System.getenv("BlobIngestContainerName")
+        private val connectionString: String = System.getenv("BlobIngestConnectionString")
+
+        private val serviceClient: BlobServiceClient = BlobServiceClientBuilder()
+            .connectionString(connectionString)
+            .buildClient()
+        val containerClient: BlobContainerClient = serviceClient
+            .getBlobContainerClient(containerName)
+}
+
+class CosmosDBConfig {
     companion object {
         private val cosmosEndpoint = System.getenv("CosmosDBConnectionString")
         private val cosmosKey = System.getenv("CosmosDBKey")
@@ -71,7 +87,7 @@ class CosmosDBClient {
         private val storageContainerName = System.getenv("CosmosDBStorageContainer")
         private val routeContainerName = System.getenv("CosmosDBRouteContainer")
 
-        private val cosmosClient  by lazy  {
+        private val cosmosClient  =
             CosmosClientBuilder()
                 .endpoint(cosmosEndpoint)
                 .key(cosmosKey)
@@ -79,11 +95,9 @@ class CosmosDBClient {
                 .preferredRegions(listOf(cosmosRegion))
                 .directMode()
                 .buildClient()
-        }
-
-        private val database by lazy { cosmosClient.getDatabase(databaseName) }
-        private val storageContainer by lazy { database.getContainer(storageContainerName) }
-        private val routeContainer by lazy { database.getContainer(routeContainerName) }
+        private val database =  cosmosClient.getDatabase(databaseName)
+        private val storageContainer =  database.getContainer(storageContainerName)
+        private val routeContainer = database.getContainer(routeContainerName)
     }
 
     fun readRouteConfig(destIdEvent: String): RouteConfig? {

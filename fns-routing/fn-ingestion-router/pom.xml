@@ -16,6 +16,7 @@
         <azure.storage.blob.version>12.22.2</azure.storage.blob.version>
         <AzureBom.version>1.2.15</AzureBom.version>
         <!-- <azure.identity.version>1.9.0</azure.identity.version> -->
+        <slf4j.version>2.0.5</slf4j.version>
         <gson.version>2.10.1</gson.version>
         <functionRegion>eastus</functionRegion>
     </properties>
@@ -64,6 +65,16 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
         <!-- Test -->
         <dependency>
@@ -234,14 +245,14 @@
             </plugin>
         </plugins>
     </build>
-        <distributionManagement>
-            <repository>
-                <id>ede-releases</id>
-                <url>${maven-releases-url}</url>
-            </repository>
-            <snapshotRepository>
-                <id>ede-snapshots</id>
-                <url>${maven-snapshot-url}</url>
-            </snapshotRepository>
-        </distributionManagement>
+    <distributionManagement>
+        <repository>
+            <id>ede-releases</id>
+            <url>${maven-releases-url}</url>
+        </repository>
+        <snapshotRepository>
+            <id>ede-snapshots</id>
+            <url>${maven-snapshot-url}</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>
