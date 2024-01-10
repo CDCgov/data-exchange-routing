@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  	- Implemented configuration on Cosmos DB.
   	- Enhanced Routing to support both Connection String and SAS tokens to authenticate against Storage Account.
    	- Performed code tune up to improve performance - caching configs, etc.
+    	= Added ability to configure partitioning of files into subfolders
     
 
 ### [0.0.32] - 2023-11-15
