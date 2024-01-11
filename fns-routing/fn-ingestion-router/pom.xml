@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gov.cdc.dataexchange.router</groupId>
     <artifactId>fns-ingestion-router</artifactId>
-    <version>0.0.36-2024-SNAPSHOT</version>
+    <version>0.0.36-2024-2024-01-11-185331-23b6a2c</version>
     <packaging>jar</packaging>
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
