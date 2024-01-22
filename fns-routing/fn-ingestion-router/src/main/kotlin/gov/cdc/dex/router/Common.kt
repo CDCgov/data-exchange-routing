@@ -3,6 +3,7 @@ package gov.cdc.dex.router
 import com.azure.cosmos.ConsistencyLevel
 import com.azure.cosmos.CosmosClientBuilder
 import com.azure.cosmos.models.CosmosQueryRequestOptions
+import com.azure.cosmos.models.PartitionKey
 import com.azure.storage.blob.BlobClient
 import com.azure.storage.blob.BlobContainerClient
 import com.azure.storage.blob.BlobServiceClient
@@ -100,23 +101,15 @@ class CosmosDBConfig {
         private val routeContainer = database.getContainer(routeContainerName)
     }
 
-    fun readRouteConfig(destIdEvent: String): RouteConfig? {
-        val iterator = routeContainer.queryItems(
-            "SELECT * FROM c WHERE c.destination_id_event = \"${destIdEvent}\"",
-            CosmosQueryRequestOptions(),
-            RouteConfig::class.java
-        ).iterator()
-        return if (iterator.hasNext()) iterator.next() else  null
-    }
 
-    fun readStorageAccountConfig(storageAccount: String): StorageAccountConfig? {
-        val iterator = storageContainer.queryItems(
-            "SELECT * FROM c WHERE c.storage_account = \"${storageAccount}\"",
-            CosmosQueryRequestOptions(),
-            StorageAccountConfig::class.java
-        ).iterator()
-        return if (iterator.hasNext()) iterator.next() else null
-    }
+    fun readStorageAccountConfig(account: String): StorageAccountConfig? =
+        storageContainer.readItem(account, PartitionKey(account),
+            StorageAccountConfig::class.java).item
+
+    fun readRouteConfig(destinationIdEvent: String): RouteConfig? =
+        routeContainer.readItem(destinationIdEvent, PartitionKey(destinationIdEvent),
+            RouteConfig::class.java).item
+
 }
 
 /* Parses the event message and extracts storage account name
