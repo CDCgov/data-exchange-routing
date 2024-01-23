@@ -2,7 +2,7 @@ package gov.cdc.dex.router
 
 import com.azure.cosmos.ConsistencyLevel
 import com.azure.cosmos.CosmosClientBuilder
-import com.azure.cosmos.models.CosmosQueryRequestOptions
+import com.azure.cosmos.CosmosException
 import com.azure.cosmos.models.PartitionKey
 import com.azure.storage.blob.BlobClient
 import com.azure.storage.blob.BlobContainerClient
@@ -41,7 +41,6 @@ class RouteConfig {
 }
 
 class StorageAccountConfig {
-    lateinit var storage_account:String
     var connection_string:String = ""
     var  sas:String = ""
 }
@@ -52,6 +51,7 @@ data class RouteContext(
     val storageAccountCache:MutableMap<String, StorageAccountConfig>,
     val logger:java.util.logging.Logger) {
 
+    lateinit var sourceUrl:String
     lateinit var sourceStorageAccount:String
     lateinit var sourceContainerName:String
     lateinit var sourceFileName:String
@@ -60,6 +60,9 @@ data class RouteContext(
     lateinit var sourceMetadata: MutableMap<String,String>
     lateinit var destinationId:String
     lateinit var event:String
+    lateinit var traceId:String
+    lateinit var parentSpanId:String
+    lateinit var uploadId:String
 
     lateinit var routingConfig:RouteConfig
 
@@ -101,16 +104,28 @@ class CosmosDBConfig {
         private val routeContainer = database.getContainer(routeContainerName)
     }
 
-
     fun readStorageAccountConfig(account: String): StorageAccountConfig? =
-        storageContainer.readItem(account, PartitionKey(account),
-            StorageAccountConfig::class.java).item
+        try {
+            storageContainer.readItem(
+                account, PartitionKey(account),
+                StorageAccountConfig::class.java
+            ).item
+        }
+        catch (ex: CosmosException) {
+            null
+        }
 
     fun readRouteConfig(destinationIdEvent: String): RouteConfig? =
-        routeContainer.readItem(destinationIdEvent, PartitionKey(destinationIdEvent),
-            RouteConfig::class.java).item
-
+        try {
+            routeContainer.readItem(
+                destinationIdEvent, PartitionKey(destinationIdEvent),
+                RouteConfig::class.java
+            ).item
+        } catch (ex: CosmosException) {
+            null
+        }
 }
+
 
 /* Parses the event message and extracts storage account name
    container name and file name for the source blob
@@ -119,7 +134,8 @@ fun parseMessage(context:RouteContext) {
     with (context) {
         val eventContent = gson.fromJson(message, Array<EventSchema>::class.java).first()
 
-        val uri = URI(eventContent.data.url)
+        sourceUrl = eventContent.data.url
+        val uri = URI(sourceUrl)
         val host = uri.host
         val path = uri.path.substringAfter("/")
         val containerName = path.substringBefore("/")
