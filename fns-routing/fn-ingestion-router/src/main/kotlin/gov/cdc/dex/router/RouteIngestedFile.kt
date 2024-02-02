@@ -1,5 +1,8 @@
 package gov.cdc.dex.router
 
+import com.azure.core.amqp.AmqpTransportType
+import com.azure.messaging.servicebus.ServiceBusClientBuilder
+import com.azure.messaging.servicebus.ServiceBusMessage
 import com.azure.storage.blob.BlobClientBuilder
 import com.github.kittinunf.fuel.httpPost
 import com.github.kittinunf.fuel.httpPut
@@ -12,16 +15,17 @@ class RouteIngestedFile {
         const val ROUTE_MSG = "DEX::Routing:"
 
         private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
-/*
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
         private val sBusQueueName = System.getenv("ServiceBusQueue")
-        private val senderClient = ServiceBusClientBuilder()
-            .connectionString(sBusConnectionString)
-            .sender()
-            .queueName(sBusQueueName)
-            .buildAsyncClient()
+        private val sBusClient by lazy {
+            ServiceBusClientBuilder()
+                .connectionString(sBusConnectionString)
+                .transportType(AmqpTransportType.AMQP_WEB_SOCKETS)
+                .sender()
+                .queueName(sBusQueueName)
+                .buildAsyncClient()
+        }
 
-*/
         val cosmosDBConfig = CosmosDBConfig()
         val sourceSAConfig = SourceSAConfig()
     }
@@ -81,19 +85,22 @@ class RouteIngestedFile {
         }
 
     private fun validateProcessingStatusMeta(context:RouteContext) =
-        with (context ) {
-            // TODO TODO TODO
-            traceId = sourceMetadata.getOrDefault("trace_id", "")
-            parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
-            uploadId = sourceMetadata.getOrDefault("meta_ext_uploadid", "")
+        if (apiURL != null )  {
+            with(context) {
+                // TODO TODO TODO after DEX Upload
+                traceId = sourceMetadata.getOrDefault("trace_id", "")
+                parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
+                uploadId = sourceMetadata.getOrDefault("meta_ext_uploadid", "")
 
-            if (traceId.isEmpty() || uploadId.isEmpty()) {
-                uploadId = UUID.randomUUID().toString()
-                context.logger.info("uploadId:$uploadId")
-                getTrace(this)
+
+                if (traceId!!.isEmpty() || uploadId!!.isEmpty()) {
+                    uploadId = UUID.randomUUID().toString()
+                    getTrace(this)
+                }
+                logger.info("$ROUTE_MSG uploadId:$uploadId")
+                startTrace(this)
             }
-            sendTrace(this, "start")
-        }
+        } else {}
 
 
     /* Validates the destination routes from CosmosDB
@@ -133,7 +140,7 @@ class RouteIngestedFile {
         folder name from the route configuration.
         Streams the source blob and updates metadata
      */
-    fun routeSourceBlobToDestination(context:RouteContext) {
+    fun routeSourceBlobToDestination(context:RouteContext) =
         with (context) {
             val destinationFileName = sourceFileName.split("/").last()
             routingConfig.routes.forEach {route ->
@@ -158,9 +165,11 @@ class RouteIngestedFile {
                 sourceBlobInputStream.close()
 
                 sourceMetadata["system_provider"] = "DEX-ROUTING"
-                sourceMetadata["trace_id"] = traceId
-                sourceMetadata["parent_span_id"] = parentSpanId
-                sourceMetadata["meta_ext_uploadid"] = uploadId
+                if ( childSpanId != null) {
+                    sourceMetadata["trace_id"] = traceId!!
+                    sourceMetadata["parent_span_id"] = childSpanId!!
+                    sourceMetadata["meta_ext_uploadid"] = uploadId!!
+                }
                 route.metadata?.let {
                     it.entries.forEach {(key,value) ->
                         sourceMetadata[key] =  value
@@ -169,17 +178,17 @@ class RouteIngestedFile {
                 destinationBlob.setMetadata(sourceMetadata)
             }
         }
-    }
-    private fun sendProcessingStatus(context:RouteContext) {
-        with (context) {
-            routingConfig.routes.forEach {route ->
-                if ( !route.isValid) return@forEach
-                sendReport(this, route)
-                sendTrace(this, "stop")
-            }
-        }
 
-    }
+    private fun sendProcessingStatus(context:RouteContext) =
+        if ( apiURL != null ) {
+            with(context) {
+                routingConfig.routes.forEach { route ->
+                    if (!route.isValid) return@forEach
+                    sendReport(this, route)
+                    stopTrace(this)
+                }
+            }
+        } else {}
 
     private fun logContextError(context:RouteContext, error:String) =
         with (context) {
@@ -218,49 +227,59 @@ class RouteIngestedFile {
     private fun getTrace(context:RouteContext) {
         with (context) {
             val url = "$apiURL/trace?uploadId=$uploadId&destinationId=$destinationId&eventType=$event"
-            context.logger.info(url)
             val (_, _, result) = url
                 .httpPost()
                 .responseString()
             val (payload, _) = result
-            context.logger.info("$payload")
             val trace = gson.fromJson(payload, Trace::class.java)
             traceId = trace.traceId
             parentSpanId  = trace.spanId
         }
     }
-    private fun sendTrace(context:RouteContext, span:String) {
+    private fun startTrace(context:RouteContext) =
         with (context) {
-            context.logger.info("SENDING $span")
-            val url = "$apiURL/trace/addSpan/$traceId/$parentSpanId?stageName=dex-routing&spanMark=$span"
-            context.logger.info(url)
+            val url = "$apiURL/trace/startSpan/$traceId/$parentSpanId?stageName=dex-routing"
             val (_, _, result) = url
                 .httpPut()
                 .responseString()
             val (payload, _) = result
-            context.logger.info(payload)
+            val trace = gson.fromJson(payload, Trace::class.java)
+            childSpanId = trace.spanId
         }
+
+    private fun stopTrace(context:RouteContext) =
+        with (context) {
+            val url = "$apiURL/trace/stopSpan/$traceId/$childSpanId"
+            url.httpPut().responseString()
     }
 
-    private fun sendReport(context:RouteContext, route:Destination) {
+    private fun sendReport(context:RouteContext, route:Destination) =
         with (context) {
             val destinationFileName = sourceFileName.split("/").last()
-            val message = SchemaContent(
-                fileSourceBlobUrl = sourceUrl,
-                fileDestinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
-                result = "success"
-            )
-            val msg = gson.toJson(message)
-            context.logger.info("SENDING REPORT")
-            val url = "$apiURL/report/json/uploadId/$uploadId?stageName=dex-routing&destinationId=$destinationId&eventType=$event"
-            val (_, _, result) = url
-                .httpPost()
-                .body(msg)
-                .responseString()
-            val (payload, _) = result
-            context.logger.info(payload)
+            val processingStatus = ProcessingSchema(uploadId, destinationId, event,
+                content = SchemaContent(
+                    fileSourceBlobUrl = sourceUrl,
+                    fileDestinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
+                    result = "success"
+                ))
+            val msg = gson.toJson(processingStatus)
+            sBusClient.sendMessage(ServiceBusMessage(msg))
+                .subscribe(
+                    {}, { e -> logger.severe("Error sending message to Service Bus: ${e.message}\n" +
+                            "upload_id: ${processingStatus.uploadId}") }
+                )
+            /*
+                        val msg = gson.toJson(message)
+                        context.logger.info("SENDING REPORT")
+                        val url = "$apiURL/report/json/uploadId/$uploadId?stageName=dex-routing&destinationId=$destinationId&eventType=$event"
+                        val (_, _, result) = url
+                            .httpPost()
+                            .body(msg)
+                            .responseString()
+                        val (payload, _) = result
+                        context.logger.info(payload)
+             */
         }
-    }
 }
 
 

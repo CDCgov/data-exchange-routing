@@ -60,9 +60,12 @@ data class RouteContext(
     lateinit var sourceMetadata: MutableMap<String,String>
     lateinit var destinationId:String
     lateinit var event:String
-    lateinit var traceId:String
-    lateinit var parentSpanId:String
-    lateinit var uploadId:String
+
+    // TODO rework after DEX UPLOAD
+    var traceId:String? = null
+    var parentSpanId:String? = null
+    var uploadId:String? = null
+    var childSpanId:String? = null
 
     lateinit var routingConfig:RouteConfig
 

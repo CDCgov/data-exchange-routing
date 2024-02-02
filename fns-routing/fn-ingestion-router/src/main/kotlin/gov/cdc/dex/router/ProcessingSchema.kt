@@ -1,6 +1,7 @@
 package gov.cdc.dex.router
 
 import com.google.gson.annotations.SerializedName
+import java.util.*
 
 data class Trace(@SerializedName("trace_id") val traceId:String,
                  @SerializedName("span_id") val spanId:String)
@@ -16,7 +17,7 @@ data class SchemaContent(
     val result:String,
 
     @SerializedName("error_description")
-    val errorDescription:String = "",
+    val errorDescription:String? = null,
 
     @SerializedName("schema_version")
     val schemaVersion:String = "0.0.1",
@@ -25,7 +26,7 @@ data class SchemaContent(
     val schemaName:String = "dex-file-copy"
 
     @SerializedName("timestamp")
-    val timestamp:Long = System.currentTimeMillis()
+    val timestamp:String = Date().asISO8601()
 }
 
 data class ProcessingSchema (
