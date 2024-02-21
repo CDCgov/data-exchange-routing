@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+### [0.0.39] - 2024-02-21
+	- Created a tool that configures all routes needed for HL7 pipeline (1 in, 6 out)
+
 ### [0.0.38] -2024-02-07
 	 - Integrated with Processing status for Reports and Traces
 	 - Load tested on TST with 500,000 messages
