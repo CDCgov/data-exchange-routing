@@ -11,4 +11,3 @@ fun Date.asISO8601(): String = SimpleDateFormat(ISO8601).format(this)
 fun pipe(context:RouteContext, vararg fn: (RouteContext)->Unit) {
     fn.forEach { f -> if ( context.errors.isEmpty()) { f(context)} }
 }
-
