@@ -138,16 +138,17 @@ class CosmosDBConfig {
 fun parseMessage(context:RouteContext) {
     with (context) {
         val eventContent = gson.fromJson(message, Array<EventSchema>::class.java).first()
-
         sourceUrl = eventContent.data.url
-        val uri = URI(sourceUrl)
+
+        val fileName = sourceUrl.substringAfterLast("/")
+        val uri = URI(sourceUrl.substringBefore(fileName))
+
         val host = uri.host
         val path = uri.path.substringAfter("/")
-        val containerName = path.substringBefore("/")
 
         sourceStorageAccount = host.substringBefore(".blob.core.windows.net")
         sourceContainerName = path.substringBefore("/")
-        sourceFileName = path.substringAfter("$containerName/")
+        sourceFileName = "${path.substringAfter("/", "")}$fileName"
         sourceFolderPath = sourceFileName.substringBeforeLast("/","")
     }
 }
@@ -168,7 +169,8 @@ fun foldersToPath(context:RouteContext, folders:List<String>): String {
             else -> it
         })
     }
-    return path.joinToString("/")
+    return path.filter { it.isNotEmpty() }
+        .joinToString("/")
 }
 
 
