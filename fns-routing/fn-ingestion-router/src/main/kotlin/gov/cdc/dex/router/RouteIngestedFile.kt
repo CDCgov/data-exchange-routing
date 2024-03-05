@@ -42,7 +42,6 @@ class RouteIngestedFile {
         context.logger.info("$ROUTE_MSG ${messages.size} in")
 
         val start = System.currentTimeMillis()
-
         var countProcessed = 0
 
         // read caches
@@ -50,21 +49,26 @@ class RouteIngestedFile {
         val storageAccountCache = mutableMapOf<String, StorageAccountConfig>()
 
         try {
-            messages.forEach {msg ->
+            messages.forEach { msg ->
                 val routeContext = RouteContext(msg, routeConfigCache, storageAccountCache, context.logger)
-                pipe(routeContext,
-                    ::parseMessage,
-                    ::validateSourceBlobMeta,
-                    ::validateProcessingStatusMeta,
-                    ::validateDestinationRoutes,
-                    ::routeSourceBlobToDestination,
-                    ::sendProcessingStatus
-                )
-                countProcessed +=  if (routeContext.errors.isEmpty()) 1 else 0
+                try {
+                    pipe(
+                        routeContext,
+                        ::parseMessage,
+                        ::validateSourceBlobMeta,
+                        ::validateProcessingStatusMeta,
+                        ::validateDestinationRoutes,
+                        ::routeSourceBlobToDestination,
+                        ::sendProcessingStatus
+                    )
+                    countProcessed += if (routeContext.errors.isEmpty()) 1 else 0
+                } catch (e: Exception) {
+                    context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
+                }
             }
-            context.logger.info("$ROUTE_MSG $countProcessed out of ${messages.size} for ${System.currentTimeMillis()-start}ms")
-        } catch (e: Exception) {
-            context.logger.severe("$ROUTE_MSG BAD ERROR:${e.message}")
+        }
+        finally {
+            context.logger.info("$ROUTE_MSG $countProcessed out of ${messages.size} for ${System.currentTimeMillis() - start}ms")
         }
     }
 
@@ -99,7 +103,6 @@ class RouteIngestedFile {
             parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
             uploadId = sourceMetadata.getOrDefault("upload_id", UUID.randomUUID().toString())
 
-            logger.info("$ROUTE_MSG upload_id:$uploadId")
             startTrace(this)
         }
 
@@ -118,10 +121,12 @@ class RouteIngestedFile {
                     route.isValid = true
                     route.sas = cachedAccount.sas
                     route.connectionString = cachedAccount.connection_string
+
                     route.destinationPath =  if (route.destination_folder == "")
                         "."
                     else
                         foldersToPath(this, route.destination_folder.split("/", "\\"))
+
                     if (route.destinationPath.isNotEmpty()) {
                         route.destinationPath += "/"
                     }
