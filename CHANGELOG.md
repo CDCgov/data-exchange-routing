@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### [0.0.40] - 2024-03-06	
+	- Added Health check endpoint to routing function
+	- Implemented Metadata V2 
+	- Fixed a bug to allow files with spaces on their names to be processed
+        - Implemented better error handling to not reject the entire batch for a single message with errors.
+
 ### [0.0.39] - 2024-02-21
 	- Created a tool that configures all routes needed for HL7 pipeline (1 in, 6 out)
 

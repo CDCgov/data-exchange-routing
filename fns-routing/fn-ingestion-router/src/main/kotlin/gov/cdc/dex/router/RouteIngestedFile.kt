@@ -4,7 +4,6 @@ import com.azure.core.amqp.AmqpTransportType
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
 import com.azure.storage.blob.BlobClientBuilder
-import com.github.kittinunf.fuel.httpPost
 import com.github.kittinunf.fuel.httpPut
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
@@ -43,7 +42,6 @@ class RouteIngestedFile {
         context.logger.info("$ROUTE_MSG ${messages.size} in")
 
         val start = System.currentTimeMillis()
-
         var countProcessed = 0
 
         // read caches
@@ -51,21 +49,26 @@ class RouteIngestedFile {
         val storageAccountCache = mutableMapOf<String, StorageAccountConfig>()
 
         try {
-            messages.forEach {msg ->
+            messages.forEach { msg ->
                 val routeContext = RouteContext(msg, routeConfigCache, storageAccountCache, context.logger)
-                pipe(routeContext,
-                    ::parseMessage,
-                    ::validateSourceBlobMeta,
-                    ::validateProcessingStatusMeta,
-                    ::validateDestinationRoutes,
-                    ::routeSourceBlobToDestination,
-                    ::sendProcessingStatus
-                )
-                countProcessed +=  if (routeContext.errors.isEmpty()) 1 else 0
+                try {
+                    pipe(
+                        routeContext,
+                        ::parseMessage,
+                        ::validateSourceBlobMeta,
+                        ::validateProcessingStatusMeta,
+                        ::validateDestinationRoutes,
+                        ::routeSourceBlobToDestination,
+                        ::sendProcessingStatus
+                    )
+                    countProcessed += if (routeContext.errors.isEmpty()) 1 else 0
+                } catch (e: Exception) {
+                    context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
+                }
             }
-            context.logger.info("$ROUTE_MSG $countProcessed out of ${messages.size} for ${System.currentTimeMillis()-start}ms")
-        } catch (e: Exception) {
-            context.logger.severe("$ROUTE_MSG BAD ERROR:${e.message}")
+        }
+        finally {
+            context.logger.info("$ROUTE_MSG $countProcessed out of ${messages.size} for ${System.currentTimeMillis() - start}ms")
         }
     }
 
@@ -75,62 +78,62 @@ class RouteIngestedFile {
         with (context ) {
             sourceBlob = sourceSAConfig.containerClient.getBlobClient(sourceFileName)
             sourceMetadata = sourceBlob.properties.metadata
+            lastModifiedUTC = sourceBlob.properties.lastModified.toString()
 
-            destinationId = sourceMetadata.getOrDefault("meta_destination_id", "")
-            event = sourceMetadata.getOrDefault("meta_ext_event", "")
+            val routeMeta = with(sourceMetadata) {
+                Pair(
+                    getOrDefault("data_stream_id",
+                    getOrDefault("meta_destination_id", ""))
+                    ,
+                    getOrDefault("data_stream_route",
+                    getOrDefault("meta_ext_event","" ))
+                )
+            }
+            dataStreamId = routeMeta.first
+            dataStreamRoute = routeMeta.second
 
-            if ( destinationId.isEmpty() || event.isEmpty() ) {
-                logContextError(this, "Missing destination_id:${destinationId} or event:$event")
+            if ( dataStreamId.isEmpty() || dataStreamRoute.isEmpty() ) {
+                logContextError(this, "Missing data_stream_id:${dataStreamId} or data_stream_route:$dataStreamRoute")
             }
         }
 
     private fun validateProcessingStatusMeta(context:RouteContext) =
-        if (apiURL != null )  {
-            with(context) {
-                // TODO TODO TODO after DEX Upload
-                traceId = sourceMetadata.getOrDefault("trace_id", "")
-                parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
-                uploadId = sourceMetadata.getOrDefault("meta_ext_uploadid", "")
+        with(context) {
+            traceId = sourceMetadata.getOrDefault("trace_id", "")
+            parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
+            uploadId = sourceMetadata.getOrDefault("upload_id", UUID.randomUUID().toString())
 
-
-                if (traceId!!.isEmpty() || uploadId!!.isEmpty()) {
-                    uploadId = UUID.randomUUID().toString()
-                    getTrace(this)
-                }
-                logger.info("$ROUTE_MSG uploadId:$uploadId")
-                startTrace(this)
-            }
-        } else {}
+            startTrace(this)
+        }
 
 
     /* Validates the destination routes from CosmosDB
      */
     private fun validateDestinationRoutes(context:RouteContext) {
-        with (context) {
-            val config = getRouteConfig(this)
-            if ( config.routes.isNotEmpty()) {
-                routingConfig = config
-                config.routes.forEach { route->
-                    if ( !route.isValid) return@forEach
+            with (context) {
+            routingConfig  =  getRouteConfig(this)
+            routingConfig.routes.forEach { route->
+                if ( !route.isValid) return@forEach
 
-                    // get connection string and sas token for this route
-                    val cachedAccount = getStorageConfig(this, route.destination_storage_account)
-                    if (cachedAccount != null) {
-                        route.isValid = true
-                        route.sas = cachedAccount.sas
-                        route.connectionString = cachedAccount.connection_string
-                        route.destinationPath =  if (route.destination_folder == "")
-                            "."
-                        else
-                            foldersToPath(this, route.destination_folder.split("/", "\\"))
-                        if (route.destinationPath.isNotEmpty()) {
-                            route.destinationPath += "/"
-                        }
+                // get connection string and sas token for this route
+                val cachedAccount = getStorageConfig(this, route.destination_storage_account)
+                if (cachedAccount != null) {
+                    route.isValid = true
+                    route.sas = cachedAccount.sas
+                    route.connectionString = cachedAccount.connection_string
+
+                    route.destinationPath =  if (route.destination_folder == "")
+                        "."
+                    else
+                        foldersToPath(this, route.destination_folder.split("/", "\\"))
+
+                    if (route.destinationPath.isNotEmpty()) {
+                        route.destinationPath += "/"
                     }
-                    else {
-                        route.isValid = false
-                        logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account}")
-                    }
+                }
+                else {
+                    route.isValid = false
+                    logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account}")
                 }
             }
         }
@@ -165,10 +168,12 @@ class RouteIngestedFile {
                 sourceBlobInputStream.close()
 
                 sourceMetadata["system_provider"] = "DEX-ROUTING"
-                if ( childSpanId != null) {
-                    sourceMetadata["trace_id"] = traceId!!
-                    sourceMetadata["parent_span_id"] = childSpanId!!
-                    sourceMetadata["meta_ext_uploadid"] = uploadId!!
+                sourceMetadata["upload_id"] = uploadId
+                sourceMetadata["data_stream_id"] = dataStreamId
+                sourceMetadata["data_stream_route"] = dataStreamRoute
+                sourceMetadata["upload_id"] = uploadId
+                if (isChildSpanInitialized) {
+                    sourceMetadata["parent_span_id"] = childSpanId
                 }
                 route.metadata?.let {
                     it.entries.forEach {(key,value) ->
@@ -180,20 +185,12 @@ class RouteIngestedFile {
         }
 
     private fun sendProcessingStatus(context:RouteContext) =
-        if ( apiURL != null ) {
-            with(context) {
-                routingConfig.routes.forEach { route ->
-                    if (!route.isValid) return@forEach
-                    sendReport(this, route)
-                    stopTrace(this)
-                }
+        with(context) {
+            routingConfig.routes.forEach { route ->
+                if (!route.isValid) return@forEach
+                sendReport(this, route)
+                stopTrace(this)
             }
-        } else {}
-
-    private fun logContextError(context:RouteContext, error:String) =
-        with (context) {
-            errors += error
-            logger.severe("$ROUTE_MSG ERROR: $error")
         }
 
     private fun getStorageConfig(context:RouteContext, saAccount:String):StorageAccountConfig? =
@@ -210,7 +207,7 @@ class RouteIngestedFile {
 
     private fun getRouteConfig(context:RouteContext):RouteConfig =
         with (context) {
-            val key = "$destinationId-$event"
+            val key = "$dataStreamId-$dataStreamRoute"
             var config = routeConfigCache[key]
             if (config == null) {
                 config = cosmosDBConfig.readRouteConfig(key)
@@ -220,65 +217,65 @@ class RouteIngestedFile {
                     config = RouteConfig()
                     logContextError(this,  "No routing configuration found for $key")
                 }
+                routeConfigCache[key] = config
             }
-            routeConfigCache[key] = config
             config
         }
-    private fun getTrace(context:RouteContext) {
-        with (context) {
-            val url = "$apiURL/trace?uploadId=$uploadId&destinationId=$destinationId&eventType=$event"
-            val (_, _, result) = url
-                .httpPost()
-                .responseString()
-            val (payload, _) = result
-            val trace = gson.fromJson(payload, Trace::class.java)
-            traceId = trace.traceId
-            parentSpanId  = trace.spanId
-        }
-    }
+
     private fun startTrace(context:RouteContext) =
-        with (context) {
-            val url = "$apiURL/trace/startSpan/$traceId/$parentSpanId?stageName=dex-routing"
-            val (_, _, result) = url
-                .httpPut()
-                .responseString()
-            val (payload, _) = result
-            val trace = gson.fromJson(payload, Trace::class.java)
-            childSpanId = trace.spanId
+        if (apiURL != null ) {
+            with(context) {
+                childSpanId = if (traceId.isNotEmpty() && parentSpanId.isNotEmpty()) {
+                    val url = "$apiURL/trace/startSpan/$traceId/$parentSpanId?stageName=dex-routing"
+                    val (_, _, result) = url
+                        .httpPut()
+                        .responseString()
+                    val (payload, _) = result
+                    val trace = gson.fromJson(payload, Trace::class.java)
+                    trace.spanId
+                } else {
+                    ""
+                }
+            }
         }
+        else {}
 
     private fun stopTrace(context:RouteContext) =
-        with (context) {
-            val url = "$apiURL/trace/stopSpan/$traceId/$childSpanId"
-            url.httpPut().responseString()
-    }
+        if (apiURL != null ) {
+            with (context) {
+                if (traceId.isNotEmpty() && isChildSpanInitialized) {
+                    val url = "$apiURL/trace/stopSpan/$traceId/$childSpanId"
+                    url.httpPut().responseString()
+                }
+           }
+        }
+        else {}
 
     private fun sendReport(context:RouteContext, route:Destination) =
+        if (sBusQueueName != null) {
+            with (context) {
+                val destinationFileName = sourceFileName.split("/").last()
+                val processingStatus = ProcessingSchema(uploadId, dataStreamId, dataStreamRoute,
+                    content = SchemaContent(
+                        fileSourceBlobUrl = sourceUrl,
+                        fileDestinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
+                        result = "success"
+                    ))
+                val msg = gson.toJson(processingStatus)
+                sBusClient.sendMessage(ServiceBusMessage(msg))
+                    .subscribe(
+                        {}, { e -> logger.severe("$ROUTE_MSG ERROR: Sending message to Service Bus: ${e.message}\n" +
+                                "upload_id: ${processingStatus.uploadId}") }
+                    )
+                Unit
+            }
+        }
+        else {}
+
+    private fun logContextError(context:RouteContext, error:String) =
         with (context) {
-            val destinationFileName = sourceFileName.split("/").last()
-            val processingStatus = ProcessingSchema(uploadId, destinationId, event,
-                content = SchemaContent(
-                    fileSourceBlobUrl = sourceUrl,
-                    fileDestinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
-                    result = "success"
-                ))
-            val msg = gson.toJson(processingStatus)
-            sBusClient.sendMessage(ServiceBusMessage(msg))
-                .subscribe(
-                    {}, { e -> logger.severe("Error sending message to Service Bus: ${e.message}\n" +
-                            "upload_id: ${processingStatus.uploadId}") }
-                )
-            /*
-                        val msg = gson.toJson(message)
-                        context.logger.info("SENDING REPORT")
-                        val url = "$apiURL/report/json/uploadId/$uploadId?stageName=dex-routing&destinationId=$destinationId&eventType=$event"
-                        val (_, _, result) = url
-                            .httpPost()
-                            .body(msg)
-                            .responseString()
-                        val (payload, _) = result
-                        context.logger.info(payload)
-             */
+            errors += error
+            logger.severe("$ROUTE_MSG ERROR: $error")
         }
 }
 

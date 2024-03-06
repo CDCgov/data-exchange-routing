@@ -11,14 +11,14 @@ import com.azure.storage.blob.BlobServiceClientBuilder
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import java.net.URI
-import java.time.ZoneId
-import java.time.ZonedDateTime
 
 
 val gson: Gson = GsonBuilder().serializeNulls().create()
+val regexUTC = """^(\d{4})-(\d\d)-(\d\d).(\d\d):(\d\d).*$""".toRegex()
 
 data class EventSchema(
     val data : EventData
+
 )
 
 data class EventData(
@@ -56,16 +56,18 @@ data class RouteContext(
     lateinit var sourceContainerName:String
     lateinit var sourceFileName:String
     lateinit var sourceFolderPath:String
+    lateinit var lastModifiedUTC:String
 
     lateinit var sourceMetadata: MutableMap<String,String>
-    lateinit var destinationId:String
-    lateinit var event:String
+    lateinit var dataStreamId:String
+    lateinit var dataStreamRoute:String
 
-    // TODO rework after DEX UPLOAD
-    var traceId:String? = null
-    var parentSpanId:String? = null
-    var uploadId:String? = null
-    var childSpanId:String? = null
+    lateinit var traceId:String
+    lateinit var parentSpanId:String
+    lateinit var uploadId:String
+
+    lateinit var childSpanId:String
+    val isChildSpanInitialized get() = this::childSpanId.isInitialized && childSpanId.isNotEmpty()
 
     lateinit var routingConfig:RouteConfig
 
@@ -136,35 +138,39 @@ class CosmosDBConfig {
 fun parseMessage(context:RouteContext) {
     with (context) {
         val eventContent = gson.fromJson(message, Array<EventSchema>::class.java).first()
-
         sourceUrl = eventContent.data.url
-        val uri = URI(sourceUrl)
+
+        val fileName = sourceUrl.substringAfterLast("/")
+        val uri = URI(sourceUrl.substringBefore(fileName))
+
         val host = uri.host
         val path = uri.path.substringAfter("/")
-        val containerName = path.substringBefore("/")
 
         sourceStorageAccount = host.substringBefore(".blob.core.windows.net")
         sourceContainerName = path.substringBefore("/")
-        sourceFileName = path.substringAfter("$containerName/")
+        sourceFileName = "${path.substringAfter("/", "")}$fileName"
         sourceFolderPath = sourceFileName.substringBeforeLast("/","")
     }
 }
 
 fun foldersToPath(context:RouteContext, folders:List<String>): String {
-    val t= ZonedDateTime.now( ZoneId.of("US/Eastern") )
+    val res = regexUTC.find(context.lastModifiedUTC) ?: return folders.joinToString("/")
+
+    val (year, month, day, hour, minutes) = res.destructured
     val path = mutableListOf<String>()
     folders.forEach {
         path.add( when (it) {
             ":f" -> context.sourceFolderPath
-            ":y" -> "${t.year}"
-            ":m" -> "${t.monthValue}"
-            ":d" -> "${t.dayOfMonth}"
-            ":h" -> "${t.hour}h"
-            ":mm" -> "${t.minute}m"
+            ":y" -> year
+            ":m" -> month
+            ":d" -> day
+            ":h" -> hour
+            ":mm" ->minutes
             else -> it
         })
     }
-    return path.joinToString("/")
+    return path.filter { it.isNotEmpty() }
+        .joinToString("/")
 }
 
 
