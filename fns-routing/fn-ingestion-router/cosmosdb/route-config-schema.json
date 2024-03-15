@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-12/schema#",
+  "title": "Routing Config Schema",
+  "description": "JSON Schema definition for route-config",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "description": "A unique id, made of destination_id-event",
+        "type": "string"
+      },
+      "destination_id": {
+        "description": "A ...",
+        "type": "string"
+      },
+      "event": {
+        "description": "A ...",
+        "type": "string"
+      },
+      "routes": {
+        "description": "A ...",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "destination_storage_account": {
+              "description": "A ...",
+              "type": "string"
+            },
+            "destination_container": {
+              "description": "A ...",
+              "type": "string"
+            },
+            "destination_folder": {
+              "description": "A ...",
+              "type": "string"
+            },
+            "metadata": {
+                "description": "A ...",
+                "type": "object",
+                "additionalProperties" : {
+                  "type" : "string"
+                }
+            }
+          }
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      }
+    },
+    "required": [
+      "id",
+      "routes",
+      "destination_id",
+      "event"
+    ]
+  }
+}

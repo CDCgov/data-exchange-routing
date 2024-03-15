@@ -30,45 +30,38 @@ class RouteIngestedFile {
     }
 
     @FunctionName("RouteIngestedFile")
-    fun run(
-        @EventHubTrigger(name = "message",
-            eventHubName = "%AzureEventHubName%",
-            consumerGroup = "%AzureEventHubConsumerGroup%",
-            connection = "AzureEventHubConnectionString",
-            cardinality = Cardinality.MANY)
-        messages: List<String>,
-        context:ExecutionContext
+       fun run (
+        @QueueTrigger(
+            name = "message",
+            queueName = "file-drop",
+            connection = "BlobIngestConnectionString")
+        msg: String,
+        context: ExecutionContext
     ) {
-        context.logger.info("$ROUTE_MSG ${messages.size} in")
+        context.logger.info("$ROUTE_MSG in")
 
         val start = System.currentTimeMillis()
-        var countProcessed = 0
 
         // read caches
-        val routeConfigCache = mutableMapOf<String, RouteConfig>()
-        val storageAccountCache = mutableMapOf<String, StorageAccountConfig>()
-
+        //val routeConfigCache = mutableMapOf<String, RouteConfig>()
+        //val storageAccountCache = mutableMapOf<String, StorageAccountConfig>()
         try {
-            messages.forEach { msg ->
-                val routeContext = RouteContext(msg, routeConfigCache, storageAccountCache, context.logger)
-                try {
-                    pipe(
-                        routeContext,
-                        ::parseMessage,
-                        ::validateSourceBlobMeta,
-                        ::validateProcessingStatusMeta,
-                        ::validateDestinationRoutes,
-                        ::routeSourceBlobToDestination,
-                        ::sendProcessingStatus
-                    )
-                    countProcessed += if (routeContext.errors.isEmpty()) 1 else 0
-                } catch (e: Exception) {
-                    context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
-                }
-            }
+            val routeContext = RouteContext(msg, context.logger)
+            pipe(
+                routeContext,
+                ::parseMessage,
+                ::validateSourceBlobMeta,
+                ::validateProcessingStatusMeta,
+                ::validateDestinationRoutes,
+                ::routeSourceBlobToDestination,
+                ::sendProcessingStatus
+            )
+        }
+        catch (e: Exception) {
+            context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
         }
         finally {
-            context.logger.info("$ROUTE_MSG $countProcessed out of ${messages.size} for ${System.currentTimeMillis() - start}ms")
+            context.logger.info("$ROUTE_MSG out in ${System.currentTimeMillis() - start}ms")
         }
     }
 
@@ -110,13 +103,11 @@ class RouteIngestedFile {
     /* Validates the destination routes from CosmosDB
      */
     private fun validateDestinationRoutes(context:RouteContext) {
-            with (context) {
-            routingConfig  =  getRouteConfig(this)
-            routingConfig.routes.forEach { route->
-                if ( !route.isValid) return@forEach
-
+        with (context) {
+            val config  =  getRouteConfig(this)
+            config?.routes?.forEach { route->
                 // get connection string and sas token for this route
-                val cachedAccount = getStorageConfig(this, route.destination_storage_account)
+                val cachedAccount = getStorageConfig(route.destination_storage_account)
                 if (cachedAccount != null) {
                     route.isValid = true
                     route.sas = cachedAccount.sas
@@ -130,11 +121,16 @@ class RouteIngestedFile {
                     if (route.destinationPath.isNotEmpty()) {
                         route.destinationPath += "/"
                     }
-                }
-                else {
+                } else {
                     route.isValid = false
                     logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account}")
                 }
+            }
+            if ( config == null) {
+                logger.severe("$ROUTE_MSG ERROR: No routing config found for $dataStreamId-$dataStreamRoute")
+            }
+            else {
+                routingConfig = config
             }
         }
     }
@@ -146,7 +142,7 @@ class RouteIngestedFile {
     fun routeSourceBlobToDestination(context:RouteContext) =
         with (context) {
             val destinationFileName = sourceFileName.split("/").last()
-            routingConfig.routes.forEach {route ->
+            routingConfig?.routes?.forEach {route ->
                 if ( !route.isValid) return@forEach
 
                 val destinationBlob = if (route.connectionString.isNotEmpty())
@@ -186,41 +182,18 @@ class RouteIngestedFile {
 
     private fun sendProcessingStatus(context:RouteContext) =
         with(context) {
-            routingConfig.routes.forEach { route ->
+            routingConfig?.routes?.forEach { route ->
                 if (!route.isValid) return@forEach
                 sendReport(this, route)
                 stopTrace(this)
             }
         }
 
-    private fun getStorageConfig(context:RouteContext, saAccount:String):StorageAccountConfig? =
-        with (context) {
-            var config = storageAccountCache[saAccount]
-            if (config == null) {
-                config = cosmosDBConfig.readStorageAccountConfig(saAccount)
-                if ( config != null) {
-                    storageAccountCache[saAccount] = config
-                }
-            }
-            config
-        }
+    private fun getStorageConfig(saAccount:String):StorageAccountConfig? =
+        cosmosDBConfig.readStorageAccountConfig(saAccount)
 
-    private fun getRouteConfig(context:RouteContext):RouteConfig =
-        with (context) {
-            val key = "$dataStreamId-$dataStreamRoute"
-            var config = routeConfigCache[key]
-            if (config == null) {
-                config = cosmosDBConfig.readRouteConfig(key)
-                if ( config == null) {
-                    // use an empty config to prevent
-                    // reads for the same key
-                    config = RouteConfig()
-                    logContextError(this,  "No routing configuration found for $key")
-                }
-                routeConfigCache[key] = config
-            }
-            config
-        }
+    private fun getRouteConfig(context:RouteContext):RouteConfig? =
+        cosmosDBConfig.readRouteConfig("${context.dataStreamId}-${context.dataStreamRoute}")
 
     private fun startTrace(context:RouteContext) =
         if (apiURL != null ) {
@@ -275,7 +248,7 @@ class RouteIngestedFile {
     private fun logContextError(context:RouteContext, error:String) =
         with (context) {
             errors += error
-            logger.severe("$ROUTE_MSG ERROR: $error")
+            logger.severe("$ROUTE_MSG ERROR: $error for ${context.sourceUrl}")
         }
 }
 
