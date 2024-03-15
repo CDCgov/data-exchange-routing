@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-12/schema#",
+  "title": "Routing Config Schema",
+  "description": "JSON Schema definition for route-config",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "description": "A unique id, made of destination_id-event",
+        "type": "string"
+      },
+      "connection_string": {
+        "description": "A ...",
+        "type": "string"
+      },
+      "sas": {
+        "description": "A ...",
+        "type": "string"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  }
+}

@@ -6,20 +6,23 @@
   },
   "logging": {
     "logLevel": {
-          "default": "Warning",
-          "Function": "Information",
-          "Host": "Error",
-          "Host.Results": "Information",
-          "Worker": "Warning",
-          "Azure.Core": "Error",
-          "Azure.Messaging.EventHubs": "Warning"
+      "default": "Warning",
+      "Function": "Information",
+      "Host": "Error",
+      "Host.Results": "Information",
+      "Worker": "Warning",
+      "Azure.Core": "Error",
+      "Azure.Messaging.EventHubs": "Warning"
     }
   },
+  "concurrency": {
+    "dynamicConcurrencyEnabled": true,
+    "snapshotPersistenceEnabled": true
+  },
   "extensions": {
-    "eventHubs": {
-      "batchCheckpointFrequency": 1,
-      "maxEventBatchSize": 32,
-      "prefetchCount": 64
+    "queues": {
+      "batchSize": 32,
+      "newBatchThreshold": 16
     }
   }
 }

@@ -1,0 +1,30 @@
+[{
+    "id": "a-b",
+    "destination_id": "a",
+    "event": "b",
+     "routes": [
+      {
+        "destination_storage_account": "ocioedemessagesadev",
+        "destination_container": "hl7ingress",
+        "destination_folder": "dex-upload/aims-celr-hl7",
+        "metadata": {
+          "message_type": "ELR",
+          "route": "COVID19_ELR",
+          "reporting_jurisdiction": "unknown"
+        }
+      }
+    ]
+  },
+  {
+    "id": "c-d",
+    "destination_id": "c",
+    "event": "d",
+    "routes": [
+      {
+        "destination_storage_account": "ocioedemessagesadev",
+        "destination_container": "hl7ingress",
+        "destination_folder": "dex-upload/aims-celr-hl7"
+      }
+    ]
+  }
+ ]
