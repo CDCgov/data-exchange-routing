@@ -1,12 +1,14 @@
 package gov.cdc.dex.router
 
 import com.azure.core.amqp.AmqpTransportType
+import com.azure.core.util.Context
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
 import com.azure.storage.blob.BlobClientBuilder
 import com.github.kittinunf.fuel.httpPut
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
+import java.time.Duration
 import java.util.*
 
 class RouteIngestedFile {
@@ -27,6 +29,7 @@ class RouteIngestedFile {
 
         val cosmosDBConfig = CosmosDBConfig()
         val sourceSAConfig = SourceSAConfig()
+        val tryTimeout: Duration = Duration.ofSeconds(2)
     }
 
     @FunctionName("RouteIngestedFile")
@@ -41,10 +44,6 @@ class RouteIngestedFile {
         context.logger.info("$ROUTE_MSG in")
 
         val start = System.currentTimeMillis()
-
-        // read caches
-        //val routeConfigCache = mutableMapOf<String, RouteConfig>()
-        //val storageAccountCache = mutableMapOf<String, StorageAccountConfig>()
         try {
             val routeContext = RouteContext(msg, context.logger)
             pipe(
@@ -67,10 +66,20 @@ class RouteIngestedFile {
 
     /* Validates  blob's metadata
      */
-    fun validateSourceBlobMeta(context:RouteContext) =
+    private fun validateSourceBlobMeta(context:RouteContext) =
         with (context ) {
             sourceBlob = sourceSAConfig.containerClient.getBlobClient(sourceFileName)
-            sourceMetadata = sourceBlob.properties.metadata
+
+            val blobProperties = retry( times=3, logger = {
+                context.logger.info("$ROUTE_MSG $it")
+            }) {
+                sourceBlob.getPropertiesWithResponse(null,
+                    tryTimeout,
+                    Context.NONE
+                )?.value
+            }
+            sourceMetadata =  blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?: mutableMapOf()
+
             lastModifiedUTC = sourceBlob.properties.lastModified.toString()
 
             val routeMeta = with(sourceMetadata) {
@@ -139,7 +148,7 @@ class RouteIngestedFile {
         folder name from the route configuration.
         Streams the source blob and updates metadata
      */
-    fun routeSourceBlobToDestination(context:RouteContext) =
+    private fun routeSourceBlobToDestination(context:RouteContext) =
         with (context) {
             val destinationFileName = sourceFileName.split("/").last()
             routingConfig?.routes?.forEach {route ->
@@ -248,7 +257,7 @@ class RouteIngestedFile {
     private fun logContextError(context:RouteContext, error:String) =
         with (context) {
             errors += error
-            logger.severe("$ROUTE_MSG ERROR: $error for ${context.sourceUrl}")
+            logger.severe("$ROUTE_MSG ERROR: $error for $sourceUrl")
         }
 }
 
