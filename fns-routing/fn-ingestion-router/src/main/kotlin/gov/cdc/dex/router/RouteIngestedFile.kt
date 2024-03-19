@@ -51,7 +51,6 @@ class RouteIngestedFile {
                 routeContext,
                 ::parseMessage,
                 ::validateSourceBlobMeta,
-                ::validateProcessingStatusMeta,
                 ::validateDestinationRoutes,
                 ::routeSourceBlobToDestination,
                 ::sendProcessingStatus
@@ -94,21 +93,18 @@ class RouteIngestedFile {
             dataStreamId = routeMeta.first
             dataStreamRoute = routeMeta.second
 
-            if ( dataStreamId.isEmpty() || dataStreamRoute.isEmpty() ) {
-                logContextError(this, "Missing data_stream_id:${dataStreamId} or data_stream_route:$dataStreamRoute for $sourceUrl")
-                routeDeadLetter(context)
-            }
-        }
-
-    private fun validateProcessingStatusMeta(context:RouteContext) =
-        with(context) {
+            // get the processing status metadata
             traceId = sourceMetadata.getOrDefault("trace_id", "")
             parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
             uploadId = sourceMetadata.getOrDefault("upload_id", UUID.randomUUID().toString())
 
             startTrace(this)
-        }
 
+            if ( dataStreamId.isEmpty() || dataStreamRoute.isEmpty() ) {
+                // the file cannot be processed without dataStreamId or dataStreamRoute
+                stopProcessing(this, "Missing data_stream_id:${dataStreamId} or data_stream_route:$dataStreamRoute for $sourceUrl")
+            }
+        }
 
     /* Validates the destination routes from CosmosDB
      */
@@ -133,13 +129,11 @@ class RouteIngestedFile {
                     }
                 } else {
                     route.isValid = false
-                    logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account} for $sourceUrl")
-                    routeDeadLetter(context)
+                    stopRouteProcessing(this, "No storage account found for ${route.destination_storage_account} for $sourceUrl")
                 }
             }
             if ( config == null) {
-                logger.severe("$ROUTE_MSG ERROR: No routing config found for $dataStreamId-$dataStreamRoute for $sourceUrl")
-                routeDeadLetter(context)
+                stopProcessing(this, "No routing config found for $dataStreamId-$dataStreamRoute for $sourceUrl")
             }
             else {
                 routingConfig = config
@@ -192,6 +186,25 @@ class RouteIngestedFile {
             }
         }
 
+    private fun sendProcessingStatus(context:RouteContext) =
+        with(context) {
+            routingConfig?.routes?.forEach { route ->
+                if (!route.isValid) return@forEach
+                sBusQueueName?.let {
+                    val destinationFileName = sourceFileName.split("/").last()
+                    val processingStatus = ProcessingSchema(
+                        uploadId, dataStreamId, dataStreamRoute,
+                        content = SchemaContent.successSchema(
+                            sourceBlobUrl = sourceUrl,
+                            destinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
+                        )
+                    )
+                    sendReport(context, processingStatus)
+                }
+            }
+            stopTrace(this)
+        }
+
     private fun routeDeadLetter(context:RouteContext) =
         with (context) {
             val destinationBlob = sourceSAConfig.deadLetterContainerClient.getBlobClient(sourceFileName)
@@ -200,22 +213,6 @@ class RouteIngestedFile {
             sourceBlobInputStream.close()
             destinationBlob.setMetadata(sourceMetadata)
         }
-
-
-    private fun sendProcessingStatus(context:RouteContext) =
-        with(context) {
-            routingConfig?.routes?.forEach { route ->
-                if (!route.isValid) return@forEach
-                sendReport(this, route)
-                stopTrace(this)
-            }
-        }
-
-    private fun getStorageConfig(saAccount:String):StorageAccountConfig? =
-        cosmosDBConfig.readStorageAccountConfig(saAccount)
-
-    private fun getRouteConfig(context:RouteContext):RouteConfig? =
-        cosmosDBConfig.readRouteConfig("${context.dataStreamId}-${context.dataStreamRoute}")
 
     private fun startTrace(context:RouteContext) =
         if (apiURL != null ) {
@@ -246,31 +243,69 @@ class RouteIngestedFile {
         }
         else {}
 
-    private fun sendReport(context:RouteContext, route:Destination) =
-        if (sBusQueueName != null) {
-            with (context) {
-                val destinationFileName = sourceFileName.split("/").last()
-                val processingStatus = ProcessingSchema(uploadId, dataStreamId, dataStreamRoute,
-                    content = SchemaContent(
-                        fileSourceBlobUrl = sourceUrl,
-                        fileDestinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
-                        result = "success"
-                    ))
-                val msg = gson.toJson(processingStatus)
-                sBusClient.sendMessage(ServiceBusMessage(msg))
-                    .subscribe(
-                        {}, { e -> logger.severe("$ROUTE_MSG ERROR: Sending message to Service Bus: ${e.message}\n" +
-                                "upload_id: ${processingStatus.uploadId}") }
+    private fun stopRouteProcessing(context:RouteContext, error:String) {
+        with (context) {
+            logger.severe("$ROUTE_MSG ERROR: $error")
+            routeDeadLetter(context)
+
+            sBusQueueName?.let {
+                val processingStatus = ProcessingSchema(
+                    uploadId, dataStreamId, dataStreamRoute,
+                    content = SchemaContent.errorSchema(
+                        sourceBlobUrl = sourceUrl,
+                        destinationBlobUrl = "unknown",
+                        error = error
                     )
-                Unit
+                )
+                sendReport(context, processingStatus)
             }
         }
-        else {}
+    }
+
+    private fun stopProcessing(context:RouteContext, error:String) {
+        logContextError(context, error)
+        routeDeadLetter(context)
+
+        with (context) {
+            sBusQueueName?.let {
+                val processingStatus = ProcessingSchema(
+                    uploadId, dataStreamId, dataStreamRoute,
+                    content = SchemaContent.errorSchema(
+                        sourceBlobUrl = sourceUrl,
+                        destinationBlobUrl = "unknown",
+                        error = error
+                    )
+                )
+                sendReport(context, processingStatus)
+            }
+        }
+        stopTrace(context)
+    }
+
+    private fun sendReport(context:RouteContext, processingStatus:ProcessingSchema) =
+        with (context) {
+            val msg = gson.toJson(processingStatus)
+            sBusClient.sendMessage(ServiceBusMessage(msg))
+                .subscribe(
+                    {}, { e ->
+                        logger.severe(
+                            "$ROUTE_MSG ERROR: Sending message to Service Bus: ${e.message}\n" +
+                                    "upload_id: ${processingStatus.uploadId}"
+                        )
+                    }
+                )
+        }
+
+    private fun getStorageConfig(saAccount:String):StorageAccountConfig? =
+        cosmosDBConfig.readStorageAccountConfig(saAccount)
+
+    private fun getRouteConfig(context:RouteContext):RouteConfig? =
+        cosmosDBConfig.readRouteConfig("${context.dataStreamId}-${context.dataStreamRoute}")
 
     private fun logContextError(context:RouteContext, error:String) =
         with (context) {
             errors += error
-            logger.severe("$ROUTE_MSG ERROR: $error for $sourceUrl")
+            logger.severe("$ROUTE_MSG ERROR: $error")
         }
 }
 
