@@ -29,6 +29,7 @@ class RouteIngestedFile {
 
         val cosmosDBConfig = CosmosDBConfig()
         val sourceSAConfig = SourceSAConfig()
+
         val tryTimeout: Duration = Duration.ofSeconds(2)
     }
 
@@ -79,8 +80,7 @@ class RouteIngestedFile {
                 )?.value
             }
             sourceMetadata =  blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?: mutableMapOf()
-
-            lastModifiedUTC = sourceBlob.properties.lastModified.toString()
+            lastModifiedUTC = blobProperties?.lastModified.toString()
 
             val routeMeta = with(sourceMetadata) {
                 Pair(
@@ -95,7 +95,8 @@ class RouteIngestedFile {
             dataStreamRoute = routeMeta.second
 
             if ( dataStreamId.isEmpty() || dataStreamRoute.isEmpty() ) {
-                logContextError(this, "Missing data_stream_id:${dataStreamId} or data_stream_route:$dataStreamRoute")
+                logContextError(this, "Missing data_stream_id:${dataStreamId} or data_stream_route:$dataStreamRoute for $sourceUrl")
+                routeDeadLetter(context)
             }
         }
 
@@ -132,11 +133,13 @@ class RouteIngestedFile {
                     }
                 } else {
                     route.isValid = false
-                    logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account}")
+                    logger.severe("$ROUTE_MSG ERROR: No storage account found for ${route.destination_storage_account} for $sourceUrl")
+                    routeDeadLetter(context)
                 }
             }
             if ( config == null) {
-                logger.severe("$ROUTE_MSG ERROR: No routing config found for $dataStreamId-$dataStreamRoute")
+                logger.severe("$ROUTE_MSG ERROR: No routing config found for $dataStreamId-$dataStreamRoute for $sourceUrl")
+                routeDeadLetter(context)
             }
             else {
                 routingConfig = config
@@ -188,6 +191,16 @@ class RouteIngestedFile {
                 destinationBlob.setMetadata(sourceMetadata)
             }
         }
+
+    private fun routeDeadLetter(context:RouteContext) =
+        with (context) {
+            val destinationBlob = sourceSAConfig.deadLetterContainerClient.getBlobClient(sourceFileName)
+            val sourceBlobInputStream = sourceBlob.openInputStream()
+            destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
+            sourceBlobInputStream.close()
+            destinationBlob.setMetadata(sourceMetadata)
+        }
+
 
     private fun sendProcessingStatus(context:RouteContext) =
         with(context) {

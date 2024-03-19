@@ -6,28 +6,9 @@ This README describes settings on dev environment and it is subject to change as
 	
 ## Details:
 
-
-## dex-routing cosmos db
-## route-config container:
-``` json
-{
-    "destination_id: "dex-hl7",
-    "event": "hl7ingress",
-    "destination_id_event": "dex-hl7-hl7ingress",
-    "routes": [
-        {
-            "destination_storage_account": "...",
-            "destinationContainer": "...",
-            "destinationFolder": "..."
-        },
-        ...
-    ],
-}
-```
-## storage-account container:   
-```
-{
-    "storageAccount": "ocioederoutingdatasadev",
-    "connectionString": "..."
-}
-```
+## routing cosmos db configuration 
+CosmosDB configuration, templates and json schemas are found in cosmosdb folder.   
+To configure new route-config or storage-account items, consult the corresponding templates and the json schemas.   
+Once the configuration is done, you can upload the items using the Upload item in the CosmosDB Data Explorer.   
+To modify an item, you can do this directly in the CosmosDB and Update from
+the Data Explorer

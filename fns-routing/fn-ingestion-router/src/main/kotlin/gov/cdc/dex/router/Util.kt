@@ -28,7 +28,7 @@ fun <T> retry(
 
     val timeToSleep = delayMillis+(delayFactorSec*1000)
     repeat(times) { r ->
-        logger("Retrying $r")
+        logger("Retrying ${r+1}")
         try {
             val result = action()
             if (result != null) {
