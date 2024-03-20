@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### [0.0.41] - 2024-03-20
 	- Switched Routing Fn to read events from Storage queue instead of Event hubs (remove duplication)
 	- Added retries to read metadata out of blob files (Azure SDK bug?)
+	- Added feature to dead letter files that can't be routed.
 
 ### [0.0.40] - 2024-03-06	
 	- Added Health check endpoint to routing function
