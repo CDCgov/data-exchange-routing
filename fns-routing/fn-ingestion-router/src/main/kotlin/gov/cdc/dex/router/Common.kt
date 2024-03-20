@@ -76,13 +76,19 @@ data class RouteContext(
 
 class SourceSAConfig {
         private val containerName = System.getenv("BlobIngestContainerName")
+       private val  deadLetterContainerName = System.getenv("DeadLetterContainer")?:"route-deadletter"
         private val connectionString: String = System.getenv("BlobIngestConnectionString")
 
         private val serviceClient: BlobServiceClient = BlobServiceClientBuilder()
             .connectionString(connectionString)
             .buildClient()
+
         val containerClient: BlobContainerClient = serviceClient
             .getBlobContainerClient(containerName)
+
+        val deadLetterContainerClient: BlobContainerClient by lazy {
+            serviceClient.getBlobContainerClient(deadLetterContainerName)
+        }
 }
 
 class CosmosDBConfig {

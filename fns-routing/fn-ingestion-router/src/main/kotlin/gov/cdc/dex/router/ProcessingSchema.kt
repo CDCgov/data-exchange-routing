@@ -22,6 +22,20 @@ data class SchemaContent(
     @SerializedName("schema_version")
     val schemaVersion:String = "0.0.1",
 ) {
+    companion object {
+       fun errorSchema(sourceBlobUrl:String,destinationBlobUrl:String,error:String) = SchemaContent(
+           fileSourceBlobUrl=sourceBlobUrl,
+           fileDestinationBlobUrl=destinationBlobUrl,
+           errorDescription = error,
+           result="error"
+       )
+        fun successSchema(sourceBlobUrl:String,destinationBlobUrl:String) = SchemaContent(
+            fileSourceBlobUrl=sourceBlobUrl,
+            fileDestinationBlobUrl=destinationBlobUrl,
+            result="success"
+        )
+    }
+
     @SerializedName("schema_name")
     val schemaName:String = "dex-file-copy"
 
