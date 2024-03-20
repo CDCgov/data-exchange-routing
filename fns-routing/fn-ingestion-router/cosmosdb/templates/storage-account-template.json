@@ -1,0 +1,12 @@
+[
+  {
+    "id": "storage account",
+    "sas": "sas token",
+    "connection_string": "connection string",
+  },
+  {
+    "id": "storage account",
+    "sas": "sas token",
+    "connection_string": "connection string",
+  }
+]

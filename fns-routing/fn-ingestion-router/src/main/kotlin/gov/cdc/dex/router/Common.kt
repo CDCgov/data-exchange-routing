@@ -47,8 +47,6 @@ class StorageAccountConfig {
 
 data class RouteContext(
     val message:String,
-    val routeConfigCache:MutableMap<String, RouteConfig>,
-    val storageAccountCache:MutableMap<String, StorageAccountConfig>,
     val logger:java.util.logging.Logger) {
 
     lateinit var sourceUrl:String
@@ -69,7 +67,7 @@ data class RouteContext(
     lateinit var childSpanId:String
     val isChildSpanInitialized get() = this::childSpanId.isInitialized && childSpanId.isNotEmpty()
 
-    lateinit var routingConfig:RouteConfig
+    var routingConfig:RouteConfig? = null
 
     lateinit var sourceBlob: BlobClient
 
@@ -78,13 +76,19 @@ data class RouteContext(
 
 class SourceSAConfig {
         private val containerName = System.getenv("BlobIngestContainerName")
+       private val  deadLetterContainerName = System.getenv("DeadLetterContainer")?:"route-deadletter"
         private val connectionString: String = System.getenv("BlobIngestConnectionString")
 
         private val serviceClient: BlobServiceClient = BlobServiceClientBuilder()
             .connectionString(connectionString)
             .buildClient()
+
         val containerClient: BlobContainerClient = serviceClient
             .getBlobContainerClient(containerName)
+
+        val deadLetterContainerClient: BlobContainerClient by lazy {
+            serviceClient.getBlobContainerClient(deadLetterContainerName)
+        }
 }
 
 class CosmosDBConfig {
@@ -137,7 +141,7 @@ class CosmosDBConfig {
 */
 fun parseMessage(context:RouteContext) {
     with (context) {
-        val eventContent = gson.fromJson(message, Array<EventSchema>::class.java).first()
+        val eventContent = gson.fromJson(message, EventSchema::class.java)
         sourceUrl = eventContent.data.url
 
         val fileName = sourceUrl.substringAfterLast("/")
@@ -154,6 +158,7 @@ fun parseMessage(context:RouteContext) {
 }
 
 fun foldersToPath(context:RouteContext, folders:List<String>): String {
+    // TODO-DO  fix for :f and missing lastModifiedUTC
     val res = regexUTC.find(context.lastModifiedUTC) ?: return folders.joinToString("/")
 
     val (year, month, day, hour, minutes) = res.destructured
