@@ -4,10 +4,10 @@
 name: Build and deploy Java project to Azure Function App - routing-processor-prd
 
 on:
-  push:
-    branches:
-      - develop
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Trigger Routing CI/CD Workflow"]
+    types:
+      - completed
 
 env:
   AZURE_FUNCTIONAPP_NAME: routing-processor-prd # set this to your function app name on Azure
@@ -20,28 +20,32 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: self-hosted
     
     steps:
+      - name: Tiggered by rt-remote-cicd.yml
+      - run: echo "Workflow has been triggered"
+
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
 
-      - name: Setup Java Sdk ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v1
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
+      # - name: Setup Java Sdk ${{ env.JAVA_VERSION }}
+      #   uses: actions/setup-java@v1
+      #   with:
+      #     java-version: ${{ env.JAVA_VERSION }}
 
-      - name: 'Restore Project Dependencies Using Mvn'
-        shell: pwsh
-        run: |+
-          pushd './fns-routing/fn-ingestion-router/${{ env.PACKAGE_DIRECTORY }}'
-          mvn clean package
-          popd
+      # - name: 'Restore Project Dependencies Using Mvn'
+      #   shell: pwsh
+      #   run: |+
+      #     pushd '${{ env.PACKAGE_DIRECTORY }}/fns-routing/fn-ingestion-router/'
+      #     mvn clean package
+      #     popd
 
-      - name: Azure login
-        uses: azure/login@v1
-        with:
-          creds: '${{ secrets.AZURE_CREDENTIALS_PRD }}'
+      # - name: Azure login
+      #   uses: azure/login@v1
+      #   with:
+      #     creds: '${{ secrets.AZURE_CREDENTIALS_PRD }}'
       
       # - name: 'Run Azure Functions Action'
       #   uses: Azure/functions-action@v1
