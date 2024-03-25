@@ -25,7 +25,7 @@ jobs:
     
     steps:
       - name: Tiggered by rt-remote-cicd.yml
-      - run: echo "Workflow has been triggered"
+        run: echo "Workflow has been triggered"
 
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
