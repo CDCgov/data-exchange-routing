@@ -5,7 +5,7 @@ name: Deploy Java project to Azure Function App - routing-processor-prd
 
 on:
   workflow_run:
-    workflows: ["Build and deploy Java project to Azure Function App - routing-processor-prd"]
+    workflows: ["Build Java project to Azure Function App - routing-processor-prd"]
     types:
       - completed
 
