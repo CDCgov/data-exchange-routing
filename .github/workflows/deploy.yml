@@ -39,6 +39,8 @@ jobs:
         shell: pwsh
         run: |+
           pushd '${{ env.PACKAGE_DIRECTORY}}/fns-routing/fn-ingestion-router'
+          mvn clean package
+          popd
 
       - name: Log in with Azure
         uses: azure/login@v2
