@@ -33,7 +33,7 @@ class RouteIngestedFile {
        fun run (
         @QueueTrigger(
             name = "message",
-            queueName = "file-drop",
+            queueName = "%StorageQueueName%",
             connection = "BlobIngestConnectionString")
         msg: String,
         context: ExecutionContext
