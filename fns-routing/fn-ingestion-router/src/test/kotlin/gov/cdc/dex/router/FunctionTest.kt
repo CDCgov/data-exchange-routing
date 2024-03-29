@@ -30,8 +30,6 @@ FunctionTest {
             "destination_container": "test-routing",
             "destination_folder": "baba/:y/:m/:d",
             "metadata": {
-                "message_type": "ELR",
-                "route": "COVID19_ELR",
                 "reporting_jurisdiction": "unknown"
             }
         }
