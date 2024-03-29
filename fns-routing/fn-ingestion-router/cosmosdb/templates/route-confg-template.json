@@ -8,8 +8,6 @@
         "destination_container": "hl7ingress",
         "destination_folder": "dex-upload/aims-celr-hl7",
         "metadata": {
-          "message_type": "ELR",
-          "route": "COVID19_ELR",
           "reporting_jurisdiction": "unknown"
         }
       }
