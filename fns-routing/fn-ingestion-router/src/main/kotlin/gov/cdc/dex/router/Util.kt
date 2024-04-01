@@ -19,28 +19,3 @@ fun Date.asISO8601(): String = SimpleDateFormat(ISO8601).format(this)
 fun pipe(context:RouteContext, vararg fn: (RouteContext)->Unit) {
     fn.forEach { f -> if ( context.errors.isEmpty()) { f(context)} }
 }
-
-fun getBlobPropertiesWithMeta(blobClient: BlobClient, logger: (s:String) ->Unit):BlobProperties? {
-    var response: Response<BlobProperties>
-    var retry = 1
-    while (retry <= RETRY_COUNT) {
-        logger("Retrying $retry")
-        try {
-            response = blobClient.getPropertiesWithResponse(
-                null,
-                TRY_TIMEOUT,
-                Context.NONE
-            )
-            if (response.statusCode == 200 && response.value.metadata.isNotEmpty()) {
-                return response.value
-            }
-        } catch (e: Exception) {
-            logger("Exception caught: ${e.message}")
-        }
-        if ( retry < RETRY_COUNT) {
-            Thread.sleep(RETRY_SLEEP*retry)
-        }
-        ++retry
-    }
-    return null
-}

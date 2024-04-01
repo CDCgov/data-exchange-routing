@@ -12,6 +12,7 @@ import java.util.*
 class RouteIngestedFile {
     companion object {
         const val ROUTE_MSG = "DEX::Routing:"
+        const val METADATA = "Metadata"
 
         private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
@@ -33,7 +34,7 @@ class RouteIngestedFile {
        fun run (
         @QueueTrigger(
             name = "message",
-            queueName = "file-drop",
+            queueName = "%StorageQueueName%",
             connection = "BlobIngestConnectionString")
         msg: String,
         context: ExecutionContext
@@ -54,6 +55,9 @@ class RouteIngestedFile {
         }
         catch (e: Exception) {
             context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
+            if (e.message?.startsWith(METADATA) == true) {
+                throw e
+            }
         }
         finally {
             context.logger.info("$ROUTE_MSG out in ${System.currentTimeMillis() - start}ms")
@@ -66,11 +70,11 @@ class RouteIngestedFile {
         with (context ) {
             sourceBlob = sourceSAConfig.containerClient.getBlobClient(sourceFileName)
 
-            val blobProperties = getBlobPropertiesWithMeta(sourceBlob) {
-                context.logger.info("$ROUTE_MSG $it")
+            val blobProperties =  sourceBlob.properties
+            sourceMetadata = blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?:mutableMapOf()
+            if (sourceMetadata.isEmpty()) {
+                throw Exception("$METADATA is missing or empty")
             }
-
-            sourceMetadata =  blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?: mutableMapOf()
             lastModifiedUTC = blobProperties?.lastModified.toString()
 
             val routeMeta = with(sourceMetadata) {
