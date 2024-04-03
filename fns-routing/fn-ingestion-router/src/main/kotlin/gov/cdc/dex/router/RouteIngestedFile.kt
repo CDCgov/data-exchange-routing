@@ -147,6 +147,20 @@ class RouteIngestedFile {
             routingConfig?.routes?.forEach {route ->
                 if ( !route.isValid) return@forEach
 
+                sourceMetadata["system_provider"] = "DEX-ROUTING"
+                sourceMetadata["upload_id"] = uploadId
+                sourceMetadata["data_stream_id"] = dataStreamId
+                sourceMetadata["data_stream_route"] = dataStreamRoute
+                sourceMetadata["upload_id"] = uploadId
+                if (isChildSpanInitialized) {
+                    sourceMetadata["parent_span_id"] = childSpanId
+                }
+                route.metadata?.let {
+                    it.entries.forEach {(key,value) ->
+                        sourceMetadata[key] =  value
+                    }
+                }
+
                 val destinationBlob = if (route.connectionString.isNotEmpty())
                     BlobClientBuilder()
                         .connectionString(route.connectionString)
@@ -161,24 +175,11 @@ class RouteIngestedFile {
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
 
+
                 val sourceBlobInputStream = sourceBlob.openInputStream()
                 destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
-                sourceBlobInputStream.close()
-
-                sourceMetadata["system_provider"] = "DEX-ROUTING"
-                sourceMetadata["upload_id"] = uploadId
-                sourceMetadata["data_stream_id"] = dataStreamId
-                sourceMetadata["data_stream_route"] = dataStreamRoute
-                sourceMetadata["upload_id"] = uploadId
-                if (isChildSpanInitialized) {
-                    sourceMetadata["parent_span_id"] = childSpanId
-                }
-                route.metadata?.let {
-                    it.entries.forEach {(key,value) ->
-                        sourceMetadata[key] =  value
-                    }
-                }
                 destinationBlob.setMetadata(sourceMetadata)
+                sourceBlobInputStream.close()
             }
         }
 
