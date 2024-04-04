@@ -12,6 +12,7 @@ import java.util.*
 class RouteIngestedFile {
     companion object {
         const val ROUTE_MSG = "DEX::Routing:"
+        const val METADATA = "Metadata"
 
         private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
@@ -33,12 +34,13 @@ class RouteIngestedFile {
        fun run (
         @QueueTrigger(
             name = "message",
-            queueName = "file-drop",
+            queueName = "%StorageQueueName%",
             connection = "BlobIngestConnectionString")
         msg: String,
         context: ExecutionContext
     ) {
         context.logger.info("$ROUTE_MSG in")
+
 
         val start = System.currentTimeMillis()
         try {
@@ -54,6 +56,9 @@ class RouteIngestedFile {
         }
         catch (e: Exception) {
             context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
+            //if (e.message?.startsWith(METADATA) == true) {
+                throw e
+            //}
         }
         finally {
             context.logger.info("$ROUTE_MSG out in ${System.currentTimeMillis() - start}ms")
@@ -66,11 +71,11 @@ class RouteIngestedFile {
         with (context ) {
             sourceBlob = sourceSAConfig.containerClient.getBlobClient(sourceFileName)
 
-            val blobProperties = getBlobPropertiesWithMeta(sourceBlob) {
-                context.logger.info("$ROUTE_MSG $it")
+            val blobProperties =  sourceBlob.properties
+            sourceMetadata = blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?:mutableMapOf()
+            if (sourceMetadata.isEmpty()) {
+                throw Exception("$METADATA is missing or empty")
             }
-
-            sourceMetadata =  blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?: mutableMapOf()
             lastModifiedUTC = blobProperties?.lastModified.toString()
 
             val routeMeta = with(sourceMetadata) {
@@ -143,6 +148,20 @@ class RouteIngestedFile {
             routingConfig?.routes?.forEach {route ->
                 if ( !route.isValid) return@forEach
 
+                sourceMetadata["system_provider"] = "DEX-ROUTING"
+                sourceMetadata["upload_id"] = uploadId
+                sourceMetadata["data_stream_id"] = dataStreamId
+                sourceMetadata["data_stream_route"] = dataStreamRoute
+                sourceMetadata["upload_id"] = uploadId
+                if (isChildSpanInitialized) {
+                    sourceMetadata["parent_span_id"] = childSpanId
+                }
+                route.metadata?.let {
+                    it.entries.forEach {(key,value) ->
+                        sourceMetadata[key] =  value
+                    }
+                }
+
                 val destinationBlob = if (route.connectionString.isNotEmpty())
                     BlobClientBuilder()
                         .connectionString(route.connectionString)
@@ -157,24 +176,11 @@ class RouteIngestedFile {
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
 
-                val sourceBlobInputStream = sourceBlob.openInputStream()
-                destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
-                sourceBlobInputStream.close()
 
-                sourceMetadata["system_provider"] = "DEX-ROUTING"
-                sourceMetadata["upload_id"] = uploadId
-                sourceMetadata["data_stream_id"] = dataStreamId
-                sourceMetadata["data_stream_route"] = dataStreamRoute
-                sourceMetadata["upload_id"] = uploadId
-                if (isChildSpanInitialized) {
-                    sourceMetadata["parent_span_id"] = childSpanId
-                }
-                route.metadata?.let {
-                    it.entries.forEach {(key,value) ->
-                        sourceMetadata[key] =  value
-                    }
-                }
+                val sourceBlobInputStream = sourceBlob.openInputStream()
+                destinationBlob.upload(sourceBlobInputStream, true)
                 destinationBlob.setMetadata(sourceMetadata)
+                sourceBlobInputStream.close()
             }
         }
 
