@@ -154,6 +154,8 @@ fun parseMessage(context:RouteContext) {
         sourceContainerName = path.substringBefore("/")
         sourceFileName = "${path.substringAfter("/", "")}$fileName"
         sourceFolderPath = sourceFileName.substringBeforeLast("/","")
+        context.logger.info("${RouteIngestedFile.ROUTE_MSG} BLOB URL:$sourceUrl")
+
     }
 }
 

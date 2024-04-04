@@ -41,6 +41,7 @@ class RouteIngestedFile {
     ) {
         context.logger.info("$ROUTE_MSG in")
 
+
         val start = System.currentTimeMillis()
         try {
             val routeContext = RouteContext(msg, context.logger)
@@ -55,9 +56,9 @@ class RouteIngestedFile {
         }
         catch (e: Exception) {
             context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
-            if (e.message?.startsWith(METADATA) == true) {
+            //if (e.message?.startsWith(METADATA) == true) {
                 throw e
-            }
+            //}
         }
         finally {
             context.logger.info("$ROUTE_MSG out in ${System.currentTimeMillis() - start}ms")
@@ -177,7 +178,7 @@ class RouteIngestedFile {
 
 
                 val sourceBlobInputStream = sourceBlob.openInputStream()
-                destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
+                destinationBlob.upload(sourceBlobInputStream, true)
                 destinationBlob.setMetadata(sourceMetadata)
                 sourceBlobInputStream.close()
             }
