@@ -19,6 +19,9 @@
         <slf4j.version>2.0.5</slf4j.version>
         <gson.version>2.10.1</gson.version>
         <fuel.version>2.3.1</fuel.version>
+        <fasterxml.version>2.13.1</fasterxml.version>
+        <azuresecuritykeyvaultsecrets.version>4.2.7</azuresecuritykeyvaultsecrets.version>
+        <azureidentity.version>1.4.3</azureidentity.version>
         <functionRegion>eastus</functionRegion>
     </properties>
 
@@ -99,6 +102,24 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+        <!-- jackson.module.dependency -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+            <version>${fasterxml.version}</version>
+        </dependency>
+        <!-- azure-security-keyvault-secrets.dependency -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-security-keyvault-secrets</artifactId>
+            <version>${azuresecuritykeyvaultsecrets.version}</version>
+        </dependency>
+        <!-- azure-identity.dependency -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
+            <version>${azureidentity.version}</version>
         </dependency>
         <!-- Test -->
         <dependency>
