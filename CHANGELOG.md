@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [0.0.42] 2024-04-03
+	- Added retries to loading blob with metadata.!
+
+
 ### [0.0.41] - 2024-03-20
 	- Switched Routing Fn to read events from Storage queue instead of Event hubs (remove duplication)
 	- Added retries to read metadata out of blob files (Azure SDK bug?)

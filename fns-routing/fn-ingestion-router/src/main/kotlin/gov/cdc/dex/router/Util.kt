@@ -1,44 +1,21 @@
 package gov.cdc.dex.router
 
+import com.azure.core.http.rest.Response
+import com.azure.core.util.Context
+import com.azure.storage.blob.BlobClient
+import com.azure.storage.blob.models.BlobProperties
 import java.text.SimpleDateFormat
+import java.time.Duration
 import java.util.*
 
 private const val ISO8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
 
-val resourceAsText: String.() -> String? = { object {}.javaClass.getResource(this)?.readText()}
+private const val RETRY_COUNT = 3
+private val TRY_TIMEOUT: Duration = Duration.ofSeconds(2)
+private val RETRY_SLEEP = 1000L
+
 fun Date.asISO8601(): String = SimpleDateFormat(ISO8601).format(this)
 
 fun pipe(context:RouteContext, vararg fn: (RouteContext)->Unit) {
     fn.forEach { f -> if ( context.errors.isEmpty()) { f(context)} }
-}
-
-/**
-* This function reties the action block as many times as defined by the first
-* param times.
-* Each retry can be after a given factor in delayFactorSec.
-* Say, if delayFactorSec it is not specified, it will always wait the same amount of time (delayMillis)
-* If delayFactorSec is 1 (one second), then each retry will be one second slower.
-*/
-fun <T> retry(
-    times: Int,
-    delayMillis: Long = 1000,
-    delayFactorSec: Int = 0,
-    logger: (s:String) ->Unit,
-    action: () -> T?): T? {
-
-    val timeToSleep = delayMillis+(delayFactorSec*1000)
-    repeat(times) { r ->
-        logger("Retrying ${r+1}")
-        try {
-            val result = action()
-            if (result != null) {
-                return result
-            }
-            logger("Result came back null")
-        } catch (e: Exception) {
-            logger("Exception caught: ${e.message}")
-        }
-        Thread.sleep(timeToSleep)
-    }
-    return null
 }

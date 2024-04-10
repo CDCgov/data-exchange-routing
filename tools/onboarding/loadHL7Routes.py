@@ -32,8 +32,6 @@ container.upsert_item({
             "destination_container": "hl7ingress",
             "destination_folder": "dex-routing",
             "metadata": {
-                "message_type": "ELR",
-                "route": dest_id,
                 "reporting_jurisdiction": "unknown"
             }
         }]
@@ -52,8 +50,6 @@ for item in hl7Outputs:
                 "destination_container": programContainer,
                 "destination_folder": "hl7_" + item + "/:y/:m/:d/:/h",
                 "metadata": {
-                    "message_type": "ELR",
-                    "route": dest_id,
                     "reporting_jurisdiction": "unknown"
                 }
             }]
