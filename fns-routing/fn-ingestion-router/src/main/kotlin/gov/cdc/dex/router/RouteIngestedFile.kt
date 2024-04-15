@@ -3,10 +3,15 @@ package gov.cdc.dex.router
 import com.azure.core.amqp.AmqpTransportType
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
+import com.azure.storage.blob.BlobClient
 import com.azure.storage.blob.BlobClientBuilder
+import com.azure.storage.blob.specialized.BlockBlobClient
 import com.github.kittinunf.fuel.httpPut
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.produce
+import java.io.ByteArrayInputStream
 import java.util.*
 
 class RouteIngestedFile {
@@ -28,6 +33,12 @@ class RouteIngestedFile {
 
         val cosmosDBConfig = CosmosDBConfig()
         val sourceSAConfig = SourceSAConfig()
+
+        // max blob size in MiB for upload api, above that copyBlob is used
+        val maxBlobSizeUpload = (System.getenv("MaxBlobSizeMiB")?:"50").toInt()*1024
+
+        // chunk size for copy block blob
+        val blockBlobChunkSize = (System.getenv("BlockBlobSizeMiB")?:"100").toInt()*1024
     }
 
     @FunctionName("RouteIngestedFile")
@@ -76,7 +87,8 @@ class RouteIngestedFile {
             if (sourceMetadata.isEmpty()) {
                 throw Exception("$METADATA is missing or empty")
             }
-            lastModifiedUTC = blobProperties?.lastModified.toString()
+            lastModifiedUTC = blobProperties?.lastModified?.toString() ?:""
+            blobSize = blobProperties?.blobSize ?:0L
 
             val routeMeta = with(sourceMetadata) {
                 Pair(
@@ -176,11 +188,24 @@ class RouteIngestedFile {
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
 
+                if (blobSize <= maxBlobSizeUpload) {
+                    sourceBlob.openInputStream().use { stream->
+                        destinationBlob.upload(stream, sourceBlob.properties.blobSize)
+                        destinationBlob.setMetadata(sourceMetadata)
+                    }
+                }
+                else {
+                    val destinationBlockBlob = destinationBlob.blockBlobClient
+                    destinationBlockBlob.deleteIfExists()
+                    val start = System.currentTimeMillis()
+                    runBlocking {
+                        launch {
+                            copyBlob(sourceBlob, destinationBlockBlob, sourceMetadata)
+                        }
+                    }
+                    logger.info("copied in ${System.currentTimeMillis() - start}ms")
+                }
 
-                val sourceBlobInputStream = sourceBlob.openInputStream()
-                destinationBlob.upload(sourceBlobInputStream, true)
-                destinationBlob.setMetadata(sourceMetadata)
-                sourceBlobInputStream.close()
             }
         }
 
@@ -305,6 +330,41 @@ class RouteIngestedFile {
             errors += error
             logger.severe("$ROUTE_MSG ERROR: $error")
         }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    suspend fun copyBlob(sourceBlob: BlobClient, destinationBlob: BlockBlobClient, metadata:MutableMap<String,String>) {
+        withContext(Dispatchers.IO) {
+            val blockIdList: MutableList<String> = ArrayList()
+            val buffer = ByteArray(blockBlobChunkSize)
+
+            val sourceBlobInputStream = sourceBlob.openInputStream()
+            val channel = produce {
+                var bytesRead: Int
+                while (sourceBlobInputStream.read(buffer, 0, blockBlobChunkSize).also { bytesRead = it } != -1) {
+                    val blockId = Base64.getEncoder()
+                        .encodeToString(UUID.randomUUID().toString().toByteArray())
+                    blockIdList.add(blockId)
+                    send(Chunk(blockId, buffer.copyOf(bytesRead)))
+                }
+            }
+
+            val jobs = mutableListOf<Job>()
+
+            for(chunk in channel) {
+                val job = launch {
+                    ByteArrayInputStream(chunk.block).use { stream ->
+                        destinationBlob.stageBlock(chunk.blockId, stream, chunk.block.size.toLong())
+                    }
+                }
+                jobs.add(job)
+            }
+            jobs.forEach { it.join() }
+
+            destinationBlob.commitBlockList(blockIdList)
+            destinationBlob.setMetadata(metadata)
+            sourceBlobInputStream.close()
+        }
+    }
 }
 
 

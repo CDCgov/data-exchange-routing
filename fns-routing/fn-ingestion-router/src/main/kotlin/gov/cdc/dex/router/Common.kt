@@ -12,19 +12,33 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import java.net.URI
 
+data class Chunk(
+    val blockId: String,
+    val block:ByteArray
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Chunk
+
+        return blockId == other.blockId
+    }
+    override fun hashCode(): Int {
+        return blockId.hashCode()
+    }
+}
 
 val gson: Gson = GsonBuilder().serializeNulls().create()
 val regexUTC = """^(\d{4})-(\d\d)-(\d\d).(\d\d):(\d\d).*$""".toRegex()
 
 data class EventSchema(
     val data : EventData
-
 )
 
 data class EventData(
     val url: String
 )
-
 class Destination {
     lateinit var destination_storage_account: String
     lateinit var destination_container: String
@@ -55,6 +69,8 @@ data class RouteContext(
     lateinit var sourceFileName:String
     lateinit var sourceFolderPath:String
     lateinit var lastModifiedUTC:String
+
+    var blobSize:Long = 0L
 
     lateinit var sourceMetadata: MutableMap<String,String>
     lateinit var dataStreamId:String
