@@ -4,9 +4,15 @@ if ! [[ "$1" =~ ^(dev|tst|stg|prd)$ ]]; then
 	return
 fi
 env=$1
-hl7RG=ocio-ede-$env-moderate-routing-rg
+routeRG=ocio-ede-$env-moderate-routing-rg
 
-function=routing-${env}-processor
+if [[ $1 == "prd" ]]; then
+	function_name="routing-$env-processor"
+else
+	function_name="routing-processor-$env"
+fi
+
+function="routing-processor-$env"
 base_name=az-fun-hl7-$function.zip
 
 
@@ -22,4 +28,8 @@ cd ../../..
 
 echo "Deploying Zip..."
 
-az functionapp deployment source config-zip -g $hl7RG -n $function --src $base_name
+az functionapp deployment source config-zip -g $routeRG -n $function_name --src $base_name
+
+### Set FN_VERSION:
+fn_version=$(cat pom.xml |grep -oPm1 "(?<=<version>)[^<]+")
+az functionapp config appsettings set --name $function_name --resource-group $routeRG --settings FN_VERSION=$fn_version
