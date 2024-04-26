@@ -1,0 +1,59 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Deploy Java project to Azure Function App - routing-processor-prd
+
+on:
+  workflow_run:
+    workflows: ["Build Java project to Azure Function App - routing-processor-prd"]
+    types:
+      - completed
+
+env:
+  AZURE_FUNCTIONAPP_NAME: routing-processor-prd # set this to the name of the function app name
+  PACKAGE_DIRECTORY: '.' ## Be careful with this variable since pom.xml isn't located in current work dir
+  JAVA_VERSION: '17' # set this to the java version to use
+
+permissions:
+      id-token: write
+      contents: read
+
+jobs:
+  build:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: self-hosted ## Configure local runner
+    
+    steps:
+      - name: Tiggered by build.yml
+        run: echo "Workflow has been triggered"
+
+      - name: 'Checkout GitHub Action'
+        uses: actions/checkout@v4
+
+      - name: Setup Java Sdk ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Restore Project Dependencies
+        shell: pwsh
+        run: |+
+          pushd '${{ env.PACKAGE_DIRECTORY}}/fns-routing/fn-ingestion-router'
+          mvn clean package
+          popd
+
+      - name: Log in with Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS}} ## Set this if !set
+      
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
+        with:
+          app-name: 'routing-processor-prd'
+          package: '${{ env.PACKAGE_DIRECTORY }}'
+          respect-pom-xml: true
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PRD }}
+
+         ##Make sure you use the publish profile from function app slot rather than the host
