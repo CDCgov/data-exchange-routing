@@ -27,24 +27,11 @@ jobs:
         uses: azure/login@v1
         with:
           creds: '${{ secrets.AZURE_CREDENTIALS_PRD }}'
-
-      - name: Setup Java Sdk
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: ${{ env.JAVA_VERSION}}
-          cache: 'maven'
-
-      - name: 'Execute Maven Commands'
-        run: |
-          pushd '${{ env.PACKAGE_DIRECTORY }}/fns-routing/fn-ingestion-router'
-          mvn clean install -B
-          popd
       
-      # - name: Deploy Azure Functions
-      #   uses: Azure/functions-action@v1
-      #   with:
-      #     app-name: 'routing-processor-prd'
-      #     package: '${{ env.PACKAGE_DIRECTORY }}/fn-ingestion-router/'
-      #     respect-pom-xml: true
-      #     publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PRD }}
+      - name: Deploy Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: 'routing-prd-processor'
+          package: '${{ env.PACKAGE_DIRECTORY }}/fns-routing/fn-ingestion-router/'
+          respect-pom-xml: true
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PRD }}
