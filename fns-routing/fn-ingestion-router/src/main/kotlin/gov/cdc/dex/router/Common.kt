@@ -11,20 +11,58 @@ import com.azure.storage.blob.BlobServiceClientBuilder
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 
+data class ConfigCache(val intervalMillis:Long) {
+    private val lock = Any()
+
+    @Volatile
+    private var cacheExpire:Long = System.currentTimeMillis()+intervalMillis
+
+    val routesCache = ConcurrentHashMap<String,  RouteConfig>()
+    val storageCache = ConcurrentHashMap<String,  StorageAccountConfig>()
+
+    fun clearIfExpired(now:Long) =
+        if ( cacheExpire < now) {
+            synchronized(lock) {
+                if (cacheExpire < now) {
+                    cacheExpire = now + intervalMillis
+                    routesCache.clear()
+                    storageCache.clear()
+                }
+                true
+            }
+        }
+        else false
+}
+
+data class Chunk(
+    val blockId: String,
+    val block:ByteArray
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Chunk
+
+        return blockId == other.blockId
+    }
+    override fun hashCode(): Int {
+        return blockId.hashCode()
+    }
+}
 
 val gson: Gson = GsonBuilder().serializeNulls().create()
 val regexUTC = """^(\d{4})-(\d\d)-(\d\d).(\d\d):(\d\d).*$""".toRegex()
 
 data class EventSchema(
     val data : EventData
-
 )
 
 data class EventData(
     val url: String
 )
-
 class Destination {
     lateinit var destination_storage_account: String
     lateinit var destination_container: String
@@ -34,6 +72,9 @@ class Destination {
     var destinationPath:String  = ""
     var sas = ""
     var connectionString = ""
+    var tid:String = ""
+    var cid:String = ""
+    var sv:String = ""
     var isValid = true
 }
 class RouteConfig {
@@ -42,7 +83,10 @@ class RouteConfig {
 
 class StorageAccountConfig {
     var connection_string:String = ""
-    var  sas:String = ""
+    var sas:String = ""
+    var tid:String = ""
+    var cid:String = ""
+    var sv:String = ""
 }
 
 data class RouteContext(
@@ -54,7 +98,9 @@ data class RouteContext(
     lateinit var sourceContainerName:String
     lateinit var sourceFileName:String
     lateinit var sourceFolderPath:String
-    lateinit var lastModifiedUTC:String
+    lateinit var creationTimeUTC:String
+
+    var blobSize:Long = 0L
 
     lateinit var sourceMetadata: MutableMap<String,String>
     lateinit var dataStreamId:String
@@ -75,41 +121,40 @@ data class RouteContext(
 }
 
 class SourceSAConfig {
-        private val containerName = System.getenv("BlobIngestContainerName")
-       private val  deadLetterContainerName = System.getenv("DeadLetterContainer")?:"route-deadletter"
-        private val connectionString: String = System.getenv("BlobIngestConnectionString")
+    private val containerName = System.getenv("BlobIngestContainerName")
+    private val deadLetterContainerName = System.getenv("DeadLetterContainer")?:"route-deadletter"
+    private val connectionString: String = System.getenv("BlobIngestConnectionString")
 
-        private val serviceClient: BlobServiceClient = BlobServiceClientBuilder()
-            .connectionString(connectionString)
-            .buildClient()
+    private val serviceClient: BlobServiceClient = BlobServiceClientBuilder()
+        .connectionString(connectionString)
+        .buildClient()
 
-        val containerClient: BlobContainerClient = serviceClient
-            .getBlobContainerClient(containerName)
+    val containerClient: BlobContainerClient = serviceClient
+        .getBlobContainerClient(containerName)
 
-        val deadLetterContainerClient: BlobContainerClient by lazy {
-            serviceClient.getBlobContainerClient(deadLetterContainerName)
-        }
+    val deadLetterContainerClient: BlobContainerClient = serviceClient
+        .getBlobContainerClient(deadLetterContainerName)
 }
 
 class CosmosDBConfig {
     companion object {
-        private val cosmosEndpoint = System.getenv("CosmosDBConnectionString")
+        private val cosmosEndpoint = System.getenv("CosmosDBUri")
         private val cosmosKey = System.getenv("CosmosDBKey")
         private val cosmosRegion = System.getenv("CosmosDBRegion")
         private val databaseName = System.getenv("CosmosDBId")
         private val storageContainerName = System.getenv("CosmosDBStorageContainer")
         private val routeContainerName = System.getenv("CosmosDBRouteContainer")
 
-        private val cosmosClient  =
-            CosmosClientBuilder()
-                .endpoint(cosmosEndpoint)
-                .key(cosmosKey)
-                .consistencyLevel(ConsistencyLevel.EVENTUAL)
-                .preferredRegions(listOf(cosmosRegion))
-                .directMode()
-                .buildClient()
-        private val database =  cosmosClient.getDatabase(databaseName)
-        private val storageContainer =  database.getContainer(storageContainerName)
+        private val cosmosClient = CosmosClientBuilder()
+            .endpoint(cosmosEndpoint)
+            .key(cosmosKey)
+            .consistencyLevel(ConsistencyLevel.EVENTUAL)
+            .preferredRegions(listOf(cosmosRegion))
+            .directMode()
+            .buildClient()
+
+        private val database = cosmosClient.getDatabase(databaseName)
+        private val storageContainer = database.getContainer(storageContainerName)
         private val routeContainer = database.getContainer(routeContainerName)
     }
 
@@ -160,8 +205,8 @@ fun parseMessage(context:RouteContext) {
 }
 
 fun foldersToPath(context:RouteContext, folders:List<String>): String {
-    // TODO-DO  fix for :f and missing lastModifiedUTC
-    val res = regexUTC.find(context.lastModifiedUTC) ?: return folders.joinToString("/")
+    // TODO-DO  fix for :f and missing creationTimeUTC
+    val res = regexUTC.find(context.creationTimeUTC) ?: return folders.joinToString("/")
 
     val (year, month, day, hour, minutes) = res.destructured
     val path = mutableListOf<String>()
