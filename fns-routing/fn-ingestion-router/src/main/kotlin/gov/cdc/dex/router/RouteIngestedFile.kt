@@ -346,12 +346,6 @@ class RouteIngestedFile {
                 )
         }
 
-    /*    private fun getStorageConfig(saAccount:String):StorageAccountConfig? =
-            cosmosDBConfig.readStorageAccountConfig(saAccount)
-
-        private fun getRouteConfig(context:RouteContext):RouteConfig? =
-            cosmosDBConfig.readRouteConfig("${context.dataStreamId}-${context.dataStreamRoute}")
-    */
     private fun getStorageConfig(saAccount:String):StorageAccountConfig? {
         var config = cache.storageCache[saAccount]
         if (config == null) {
@@ -385,14 +379,17 @@ class RouteIngestedFile {
     suspend fun copyBlob(logger:java.util.logging.Logger, sourceBlob: BlobClient, blobSize: Long, destinationBlob: BlockBlobClient, metadata:MutableMap<String,String>) {
 
         withContext(Dispatchers.IO) {
-            val blockIdList: MutableList<Pair<Int, String>> = ArrayList()
             val totalBytesRead = AtomicLong(0L)
-
-            // TODO in configuration
+            val totalBytesSent = AtomicLong(0L)
             val corCount = 10
+
+            // one for each coroutine
+            val blockIdList = (0..corCount).map {
+                mutableListOf<Pair<Int, String>>()
+            }
+
             val channel = produce {
                 repeat(corCount) {
-                    logger.info("launching $it)")
                     launch {
                         var bytesRead: Int
                         var start = it*blobChunkSize
@@ -405,13 +402,18 @@ class RouteIngestedFile {
                                 bytesRead = stream.read(buffer)
                             }
                             if (bytesRead > 0) {
-                                val blockId = Base64.getEncoder()
-                                    .encodeToString(UUID.randomUUID().toString().toByteArray())
-                                blockIdList.add(Pair(index, blockId))
-
                                 totalBytesRead.addAndGet(bytesRead.toLong())
 
+                                // block id for this block
+                                val blockId = Base64.getEncoder()
+                                    .encodeToString(UUID.randomUUID().toString().toByteArray())
+                                blockIdList[it].add(Pair(index, blockId))
+
+                                // next offset for reading
                                 start += corCount * blobChunkSize
+
+                                // next index for the block id
+                                // needs it to order all blocks
                                 index += corCount
                                 send(Chunk(blockId, buffer.copyOf(bytesRead)))
                             }
@@ -426,6 +428,8 @@ class RouteIngestedFile {
             val jobs = mutableListOf<Job>()
             for(chunk in channel) {
                 val job = launch {
+                    totalBytesSent.addAndGet(chunk.block.size.toLong())
+                    // send the chunk
                     ByteArrayInputStream(chunk.block).use { stream ->
                         destinationBlob.stageBlock(chunk.blockId, stream, chunk.block.size.toLong())
                     }
@@ -434,7 +438,17 @@ class RouteIngestedFile {
             }
             jobs.forEach { it.join() }
 
-            val idList = blockIdList
+            logger.info("TOTAL BYTES READ:${totalBytesRead.get()}")
+            logger.info("TOTAL BYTES SENT:${totalBytesSent.get()}")
+
+            // marge individual lists
+            val idListAll = mutableListOf<Pair<Int, String>>()
+            blockIdList.forEach {
+                idListAll.addAll(it)
+            }
+
+            // sort by index and extract the block ids
+            val idList = idListAll
                 .sortedBy {(index,_)->index}
                 .map {(_,blockId)-> blockId}
 
