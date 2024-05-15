@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### [0.0.44] 2024-05-16
 	- Caching cosmosDB config
 	- Improved copying of large files
+ 	- Added dex_ingest_datetime metadata support.
 
 ### [0.0.43] - 2024-04-17
 
