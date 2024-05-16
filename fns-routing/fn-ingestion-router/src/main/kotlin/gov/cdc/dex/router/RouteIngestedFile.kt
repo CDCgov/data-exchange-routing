@@ -3,16 +3,23 @@ package gov.cdc.dex.router
 import com.azure.core.amqp.AmqpTransportType
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
+import com.azure.storage.blob.BlobClient
 import com.azure.storage.blob.BlobClientBuilder
+import com.azure.storage.blob.models.BlobRange
+import com.azure.storage.blob.models.BlobRequestConditions
+import com.azure.storage.blob.specialized.BlockBlobClient
 import com.github.kittinunf.fuel.httpPut
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.produce
+import java.io.ByteArrayInputStream
 import java.util.*
+import java.util.concurrent.atomic.AtomicLong
 
 class RouteIngestedFile {
     companion object {
         const val ROUTE_MSG = "DEX::Routing:"
-        const val METADATA = "Metadata"
 
         private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
@@ -26,8 +33,20 @@ class RouteIngestedFile {
                 .buildAsyncClient()
         }
 
+        // cosmos db
         val cosmosDBConfig = CosmosDBConfig()
         val sourceSAConfig = SourceSAConfig()
+
+        // settings for big blobs
+        // blob is considered big, if above this size
+        val bigBlobSize = (System.getenv("BigBlobSizeMiB")?:"50").toInt()*1024*1024
+        val blobChunkSize = (System.getenv("BlobChunkSizeMiB")?:"2").toLong()*1024*1024
+
+        // read cache for cosmos db configurations
+        val cache = ConfigCache(
+                (System.getenv("CosmosDBCacheExpireHr")?:"24").toLong()*60*60*1000
+         )
+
     }
 
     @FunctionName("RouteIngestedFile")
@@ -41,8 +60,9 @@ class RouteIngestedFile {
     ) {
         context.logger.info("$ROUTE_MSG in")
 
-
         val start = System.currentTimeMillis()
+        cache.clearIfExpired(start)
+
         try {
             val routeContext = RouteContext(msg, context.logger)
             pipe(
@@ -56,9 +76,7 @@ class RouteIngestedFile {
         }
         catch (e: Exception) {
             context.logger.severe("$ROUTE_MSG BLOB ERROR:${e.message}")
-            //if (e.message?.startsWith(METADATA) == true) {
-                throw e
-            //}
+            throw e
         }
         finally {
             context.logger.info("$ROUTE_MSG out in ${System.currentTimeMillis() - start}ms")
@@ -74,9 +92,12 @@ class RouteIngestedFile {
             val blobProperties =  sourceBlob.properties
             sourceMetadata = blobProperties?.metadata?.mapKeys { it.key.lowercase() }?.toMutableMap() ?:mutableMapOf()
             if (sourceMetadata.isEmpty()) {
-                throw Exception("$METADATA is missing or empty")
+                throw Exception("Metadata is missing or empty")
             }
-            lastModifiedUTC = blobProperties?.lastModified.toString()
+            blobSize = blobProperties?.blobSize ?:0L
+
+            val dexIngestDateTime = sourceMetadata.get("dex_ingest_datetime")
+            creationTimeUTC = dexIngestDateTime?:blobProperties?.creationTime?.toString() ?: ""
 
             val routeMeta = with(sourceMetadata) {
                 Pair(
@@ -107,7 +128,7 @@ class RouteIngestedFile {
      */
     private fun validateDestinationRoutes(context:RouteContext) {
         with (context) {
-            val config  =  getRouteConfig(this)
+            val config  =  getRouteConfig( dataStreamId, dataStreamRoute)
             config?.routes?.forEach { route->
                 // get connection string and sas token for this route
                 val cachedAccount = getStorageConfig(route.destination_storage_account)
@@ -115,6 +136,9 @@ class RouteIngestedFile {
                     route.isValid = true
                     route.sas = cachedAccount.sas
                     route.connectionString = cachedAccount.connection_string
+                    route.tid = cachedAccount.tid
+                    route.cid = cachedAccount.cid
+                    route.sv = cachedAccount.sv
 
                     route.destinationPath =  if (route.destination_folder == "")
                         "."
@@ -153,6 +177,7 @@ class RouteIngestedFile {
                 sourceMetadata["data_stream_id"] = dataStreamId
                 sourceMetadata["data_stream_route"] = dataStreamRoute
                 sourceMetadata["upload_id"] = uploadId
+                sourceMetadata["dex_ingest_datetime"] = creationTimeUTC
                 if (isChildSpanInitialized) {
                     sourceMetadata["parent_span_id"] = childSpanId
                 }
@@ -176,11 +201,24 @@ class RouteIngestedFile {
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
 
+                if (blobSize <= bigBlobSize) {
+                    sourceBlob.openInputStream().use { stream->
+                        destinationBlob.upload(stream, true)
+                        destinationBlob.setMetadata(sourceMetadata)
+                    }
+                }
+                else {
+                    val destinationBlockBlob = destinationBlob.blockBlobClient
+                    destinationBlockBlob.deleteIfExists()
 
-                val sourceBlobInputStream = sourceBlob.openInputStream()
-                destinationBlob.upload(sourceBlobInputStream, true)
-                destinationBlob.setMetadata(sourceMetadata)
-                sourceBlobInputStream.close()
+                    val start = System.currentTimeMillis()
+                    runBlocking {
+                        launch {
+                            copyBlob( context.logger, sourceBlob, blobSize, destinationBlockBlob, sourceMetadata)
+                        }
+                    }
+                    logger.info("copied in ${System.currentTimeMillis() - start}ms")
+                }
             }
         }
 
@@ -206,10 +244,24 @@ class RouteIngestedFile {
     private fun routeDeadLetter(context:RouteContext) =
         with (context) {
             val destinationBlob = sourceSAConfig.deadLetterContainerClient.getBlobClient(sourceFileName)
-            val sourceBlobInputStream = sourceBlob.openInputStream()
-            destinationBlob.upload(sourceBlobInputStream, sourceBlob.properties.blobSize, true)
-            sourceBlobInputStream.close()
-            destinationBlob.setMetadata(sourceMetadata)
+            if (blobSize <= bigBlobSize) {
+                sourceBlob.openInputStream().use { stream->
+                    destinationBlob.upload(stream, true)
+                    destinationBlob.setMetadata(sourceMetadata)
+                }
+            }
+            else {
+                val destinationBlockBlob = destinationBlob.blockBlobClient
+                destinationBlockBlob.deleteIfExists()
+
+                val start = System.currentTimeMillis()
+                runBlocking {
+                    launch {
+                        copyBlob( context.logger, sourceBlob, blobSize, destinationBlockBlob, sourceMetadata)
+                    }
+                }
+                logger.info("copied in ${System.currentTimeMillis() - start}ms")
+            }
         }
 
     private fun startTrace(context:RouteContext) =
@@ -237,7 +289,7 @@ class RouteIngestedFile {
                     val url = "$apiURL/trace/stopSpan/$traceId/$childSpanId"
                     url.httpPut().responseString()
                 }
-           }
+            }
         }
         else {}
 
@@ -294,18 +346,114 @@ class RouteIngestedFile {
                 )
         }
 
-    private fun getStorageConfig(saAccount:String):StorageAccountConfig? =
-        cosmosDBConfig.readStorageAccountConfig(saAccount)
+    private fun getStorageConfig(saAccount:String):StorageAccountConfig? {
+        var config = cache.storageCache[saAccount]
+        if (config == null) {
+            config = cosmosDBConfig.readStorageAccountConfig(saAccount)
+            if ( config != null) {
+                cache.storageCache[saAccount] = config
+            }
+        }
+        return config
+    }
 
-    private fun getRouteConfig(context:RouteContext):RouteConfig? =
-        cosmosDBConfig.readRouteConfig("${context.dataStreamId}-${context.dataStreamRoute}")
+    private fun getRouteConfig(dataStreamId:String, dataStreamRoute:String):RouteConfig?  {
+        val key = "${dataStreamId}-${dataStreamRoute}"
+        var config = cache.routesCache[key]
+        if (config == null) {
+            config = cosmosDBConfig.readRouteConfig(key)
+            if (config != null) {
+                cache.routesCache[key] = config
+            }
+        }
+        return config
+    }
 
     private fun logContextError(context:RouteContext, error:String) =
         with (context) {
             errors += error
             logger.severe("$ROUTE_MSG ERROR: $error")
         }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    suspend fun copyBlob(logger:java.util.logging.Logger, sourceBlob: BlobClient, blobSize: Long, destinationBlob: BlockBlobClient, metadata:MutableMap<String,String>) {
+
+        withContext(Dispatchers.IO) {
+            val totalBytesRead = AtomicLong(0L)
+            val totalBytesSent = AtomicLong(0L)
+            val corCount = 10
+
+            // one for each coroutine
+            val blockIdList = (0..corCount).map {
+                mutableListOf<Pair<Int, String>>()
+            }
+
+            val channel = produce {
+                repeat(corCount) {
+                    launch {
+                        var bytesRead: Int
+                        var start = it*blobChunkSize
+                        var index = it
+                        val buffer = ByteArray(blobChunkSize.toInt())
+                        while (start<blobSize) {
+                            val range = BlobRange(start, blobChunkSize)
+
+                            sourceBlob.openInputStream(range, BlobRequestConditions()).use { stream ->
+                                bytesRead = stream.read(buffer)
+                            }
+                            if (bytesRead > 0) {
+                                totalBytesRead.addAndGet(bytesRead.toLong())
+
+                                // block id for this block
+                                val blockId = Base64.getEncoder()
+                                    .encodeToString(UUID.randomUUID().toString().toByteArray())
+                                blockIdList[it].add(Pair(index, blockId))
+
+                                // next offset for reading
+                                start += corCount * blobChunkSize
+
+                                // next index for the block id
+                                // needs it to order all blocks
+                                index += corCount
+                                send(Chunk(blockId, buffer.copyOf(bytesRead)))
+                            }
+                            else {
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            val jobs = mutableListOf<Job>()
+            for(chunk in channel) {
+                val job = launch {
+                    totalBytesSent.addAndGet(chunk.block.size.toLong())
+                    // send the chunk
+                    ByteArrayInputStream(chunk.block).use { stream ->
+                        destinationBlob.stageBlock(chunk.blockId, stream, chunk.block.size.toLong())
+                    }
+                }
+                jobs.add(job)
+            }
+            jobs.forEach { it.join() }
+
+            logger.info("TOTAL BYTES READ:${totalBytesRead.get()}")
+            logger.info("TOTAL BYTES SENT:${totalBytesSent.get()}")
+
+            // marge individual lists
+            val idListAll = mutableListOf<Pair<Int, String>>()
+            blockIdList.forEach {
+                idListAll.addAll(it)
+            }
+
+            // sort by index and extract the block ids
+            val idList = idListAll
+                .sortedBy {(index,_)->index}
+                .map {(_,blockId)-> blockId}
+
+            destinationBlob.commitBlockList(idList)
+            destinationBlob.setMetadata(metadata)
+        }
+    }
 }
-
-
-
