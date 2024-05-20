@@ -72,9 +72,9 @@ class Destination {
     var destinationPath:String  = ""
     var sas = ""
     var connectionString = ""
-    var tid:String = ""
-    var cid:String = ""
-    var sv:String = ""
+    var tenantId:String = ""
+    var clientId:String = ""
+    var secret:String = ""
     var isValid = true
 }
 class RouteConfig {
@@ -84,9 +84,9 @@ class RouteConfig {
 class StorageAccountConfig {
     var connection_string:String = ""
     var sas:String = ""
-    var tid:String = ""
-    var cid:String = ""
-    var sv:String = ""
+    var tenant_id:String = ""
+    var client_id:String = ""
+    var secret:String = ""
 }
 
 data class RouteContext(

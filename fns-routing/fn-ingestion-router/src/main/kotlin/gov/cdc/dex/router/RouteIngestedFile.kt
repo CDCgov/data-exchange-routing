@@ -137,9 +137,9 @@ class RouteIngestedFile {
                     route.isValid = true
                     route.sas = cachedAccount.sas
                     route.connectionString = cachedAccount.connection_string
-                    route.tid = cachedAccount.tid
-                    route.cid = cachedAccount.cid
-                    route.sv = cachedAccount.sv
+                    route.tenantId = cachedAccount.tenant_id
+                    route.clientId = cachedAccount.client_id
+                    route.secret = cachedAccount.secret
 
                     route.destinationPath =  if (route.destination_folder == "")
                         "."
@@ -189,17 +189,17 @@ class RouteIngestedFile {
                 }
 
                 val destinationBlob = if (
-                    route.tid.isNotEmpty() &&
-                    route.cid.isNotEmpty() &&
-                    route.sv.isNotEmpty()) {
+                    route.tenantId.isNotEmpty() &&
+                    route.clientId.isNotEmpty() &&
+                    route.secret.isNotEmpty()) {
 
                     BlobClientBuilder()
                         .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
                         .credential(
                             ClientSecretCredentialBuilder()
-                                .tenantId(route.tid)
-                                .clientId(route.cid)
-                                .clientSecret(route.sv)
+                                .tenantId(route.tenantId)
+                                .clientId(route.clientId)
+                                .clientSecret(route.secret)
                                 .build()
                         )
                         .containerName(route.destination_container)
