@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gov.cdc.dataexchange.router</groupId>
     <artifactId>fns-ingestion-router</artifactId>
-    <version>0.0.44-SNAPSHOT</version>
+    <version>0.0.45-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
@@ -69,6 +69,10 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-cosmos</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
         </dependency>
         <!-- Misc -->
         <dependency>

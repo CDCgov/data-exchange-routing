@@ -1,6 +1,7 @@
 package gov.cdc.dex.router
 
 import com.azure.core.amqp.AmqpTransportType
+import com.azure.identity.ClientSecretCredentialBuilder
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
 import com.azure.storage.blob.BlobClient
@@ -187,19 +188,38 @@ class RouteIngestedFile {
                     }
                 }
 
-                val destinationBlob = if (route.connectionString.isNotEmpty())
+                val destinationBlob = if (
+                    route.tid.isNotEmpty() &&
+                    route.cid.isNotEmpty() &&
+                    route.sv.isNotEmpty()) {
+
+                    BlobClientBuilder()
+                        .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
+                        .credential(
+                            ClientSecretCredentialBuilder()
+                                .tenantId(route.tid)
+                                .clientId(route.cid)
+                                .clientSecret(route.sv)
+                                .build()
+                        )
+                        .containerName(route.destination_container)
+                        .blobName("${route.destinationPath}${destinationFileName}")
+                        .buildClient()
+                }
+                else if (route.connectionString.isNotEmpty())
                     BlobClientBuilder()
                         .connectionString(route.connectionString)
                         .containerName(route.destination_container)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
-                else
+                else {
                     BlobClientBuilder()
                         .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
                         .sasToken(route.sas)
                         .containerName(route.destination_container)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
+                }
 
                 if (blobSize <= bigBlobSize) {
                     sourceBlob.openInputStream().use { stream->
