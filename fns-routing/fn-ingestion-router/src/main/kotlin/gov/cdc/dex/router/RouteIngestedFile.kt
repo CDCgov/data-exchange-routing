@@ -212,13 +212,16 @@ class RouteIngestedFile {
                         .containerName(route.destination_container)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
-                else {
+                else  if (route.sas.isNotEmpty()) {
                     BlobClientBuilder()
                         .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
                         .sasToken(route.sas)
                         .containerName(route.destination_container)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
+                }
+                else {
+                    throw Exception("Misconfigured storage-account")
                 }
 
                 if (blobSize <= bigBlobSize) {
@@ -368,7 +371,13 @@ class RouteIngestedFile {
 
     private fun getStorageConfig(saAccount:String):StorageAccountConfig? {
         var config = cache.storageCache[saAccount]
-        if (config == null) {
+        if (config == null ||
+            ((config.tenant_id.isEmpty() ||
+                config.client_id.isEmpty() ||
+                    config.secret.isEmpty()) &&
+            config.connection_string.isEmpty() &&
+            config.sas.isEmpty())) {
+
             config = cosmosDBConfig.readStorageAccountConfig(saAccount)
             if ( config != null) {
                 cache.storageCache[saAccount] = config
