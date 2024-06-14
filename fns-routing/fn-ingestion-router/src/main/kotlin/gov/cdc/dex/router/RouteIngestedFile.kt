@@ -1,6 +1,7 @@
 package gov.cdc.dex.router
 
 import com.azure.core.amqp.AmqpTransportType
+import com.azure.identity.ClientSecretCredentialBuilder
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
 import com.azure.storage.blob.BlobClient
@@ -136,9 +137,9 @@ class RouteIngestedFile {
                     route.isValid = true
                     route.sas = cachedAccount.sas
                     route.connectionString = cachedAccount.connection_string
-                    route.tid = cachedAccount.tid
-                    route.cid = cachedAccount.cid
-                    route.sv = cachedAccount.sv
+                    route.tenantId = cachedAccount.tenant_id
+                    route.clientId = cachedAccount.client_id
+                    route.secret = cachedAccount.secret
 
                     route.destinationPath =  if (route.destination_folder == "")
                         "."
@@ -187,19 +188,41 @@ class RouteIngestedFile {
                     }
                 }
 
-                val destinationBlob = if (route.connectionString.isNotEmpty())
+                val destinationBlob = if (
+                    route.tenantId.isNotEmpty() &&
+                    route.clientId.isNotEmpty() &&
+                    route.secret.isNotEmpty()) {
+
+                    BlobClientBuilder()
+                        .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
+                        .credential(
+                            ClientSecretCredentialBuilder()
+                                .tenantId(route.tenantId)
+                                .clientId(route.clientId)
+                                .clientSecret(route.secret)
+                                .build()
+                        )
+                        .containerName(route.destination_container)
+                        .blobName("${route.destinationPath}${destinationFileName}")
+                        .buildClient()
+                }
+                else if (route.connectionString.isNotEmpty())
                     BlobClientBuilder()
                         .connectionString(route.connectionString)
                         .containerName(route.destination_container)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
-                else
+                else  if (route.sas.isNotEmpty()) {
                     BlobClientBuilder()
                         .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
                         .sasToken(route.sas)
                         .containerName(route.destination_container)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
+                }
+                else {
+                    throw Exception("Misconfigured storage-account")
+                }
 
                 if (blobSize <= bigBlobSize) {
                     sourceBlob.openInputStream().use { stream->
@@ -348,7 +371,13 @@ class RouteIngestedFile {
 
     private fun getStorageConfig(saAccount:String):StorageAccountConfig? {
         var config = cache.storageCache[saAccount]
-        if (config == null) {
+        if (config == null ||
+            ((config.tenant_id.isEmpty() ||
+                config.client_id.isEmpty() ||
+                    config.secret.isEmpty()) &&
+            config.connection_string.isEmpty() &&
+            config.sas.isEmpty())) {
+
             config = cosmosDBConfig.readStorageAccountConfig(saAccount)
             if ( config != null) {
                 cache.storageCache[saAccount] = config
