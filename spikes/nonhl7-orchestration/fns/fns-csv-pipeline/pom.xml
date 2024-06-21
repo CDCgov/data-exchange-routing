@@ -21,7 +21,7 @@
         <azure.storage.blob.version>12.22.2</azure.storage.blob.version>
         <azure.storage.queue.version>12.18.0</azure.storage.queue.version>
         <azure.messaging.eventhubs.version>5.15.0</azure.messaging.eventhubs.version>
-        <azure.identity.version>1.9.1</azure.identity.version>
+        <azure.identity.version>1.12.2</azure.identity.version>
         <azure.cosmos.version>4.48.1</azure.cosmos.version>
 
 		<jackson.module.kotlin.version>2.12.3</jackson.module.kotlin.version>
