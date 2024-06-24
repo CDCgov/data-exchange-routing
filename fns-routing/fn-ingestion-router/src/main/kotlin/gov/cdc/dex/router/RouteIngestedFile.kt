@@ -64,6 +64,7 @@ class RouteIngestedFile {
         val start = System.currentTimeMillis()
         cache.clearIfExpired(start)
 
+        context.logger.info("$ROUTE_MSG BIG BLOB SIZE: ${bigBlobSize}")
         try {
             val routeContext = RouteContext(msg, context.logger)
             pipe(
@@ -223,6 +224,8 @@ class RouteIngestedFile {
                 else {
                     throw Exception("Misconfigured storage-account")
                 }
+
+                logger.info("BLOB SIZE:$blobSize) VS BIG BLOB SIZE: ${bigBlobSize}")
 
                 if (blobSize <= bigBlobSize) {
                     sourceBlob.openInputStream().use { stream->
@@ -406,7 +409,7 @@ class RouteIngestedFile {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun copyBlob(logger:java.util.logging.Logger, sourceBlob: BlobClient, blobSize: Long, destinationBlob: BlockBlobClient, metadata:MutableMap<String,String>) {
-
+        logger.info("IN COPY BLOB")
         withContext(Dispatchers.IO) {
             val totalBytesRead = AtomicLong(0L)
             val totalBytesSent = AtomicLong(0L)
