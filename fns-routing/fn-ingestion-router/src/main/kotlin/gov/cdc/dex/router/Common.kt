@@ -10,6 +10,7 @@ import com.azure.storage.blob.BlobServiceClient
 import com.azure.storage.blob.BlobServiceClientBuilder
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.google.gson.annotations.SerializedName
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
@@ -63,13 +64,14 @@ data class EventSchema(
 data class EventData(
     val url: String
 )
-class Destination {
-    lateinit var destination_storage_account: String
-    lateinit var destination_container: String
-    lateinit var destination_folder: String
-    var metadata: Map<String,String>? = null
-
+data class Destination(
+    @SerializedName("destination_storage_account") val destinationStorageAccount: String = "",
+    @SerializedName("destination_container") val destinationContainer: String = "",
+    @SerializedName("destination_folder") val destinationFolder: String = "",
+    @SerializedName("metadata") val metadata: Map<String,String>? = null
+) {
     var destinationPath:String  = ""
+
     var sas = ""
     var connectionString = ""
     var tenantId:String = ""
@@ -77,17 +79,30 @@ class Destination {
     var secret:String = ""
     var isValid = true
 }
-class RouteConfig {
-    var routes: Array<Destination> = arrayOf()
+
+data class RouteConfig( val id:String,
+                        @SerializedName("routes")  var routes: Array<Destination> = arrayOf()
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as RouteConfig
+
+        return id == other.id
+    }
+
+    override fun hashCode(): Int {
+        return id.hashCode()
+    }
 }
 
-class StorageAccountConfig {
-    var connection_string:String = ""
-    var sas:String = ""
-    var tenant_id:String = ""
-    var client_id:String = ""
-    var secret:String = ""
-}
+data class StorageAccountConfig(
+    @SerializedName("connection_string") val connectionString:String = "",
+    @SerializedName("sas") val sas:String = "",
+    @SerializedName("tenant_id") val tenantId:String = "",
+    @SerializedName("client_id") val clientId:String = "",
+    @SerializedName("secret") val secret:String = "")
 
 data class RouteContext(
     val message:String,
@@ -160,10 +175,13 @@ class CosmosDBConfig {
 
     fun readStorageAccountConfig(account: String): StorageAccountConfig? =
         try {
-            storageContainer.readItem(
-                account, PartitionKey(account),
+            gson.fromJson(
+                storageContainer.readItem(
+                    account,
+                    PartitionKey(account), String::class.java
+                ).item,
                 StorageAccountConfig::class.java
-            ).item
+            )
         }
         catch (ex: CosmosException) {
             null
@@ -171,10 +189,13 @@ class CosmosDBConfig {
 
     fun readRouteConfig(destinationIdEvent: String): RouteConfig? =
         try {
-            routeContainer.readItem(
-                destinationIdEvent, PartitionKey(destinationIdEvent),
+            gson.fromJson(
+                routeContainer.readItem(
+                    destinationIdEvent,
+                    PartitionKey(destinationIdEvent), String::class.java
+                ).item,
                 RouteConfig::class.java
-            ).item
+            )
         } catch (ex: CosmosException) {
             null
         }
