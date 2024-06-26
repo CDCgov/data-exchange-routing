@@ -13,7 +13,7 @@ CONTAINER_NAME = 'route-config'
 container = database.get_container_client(CONTAINER_NAME)
 
 if len(sys.argv) < 6:
-    print("Pass appropriate params: <destination> <event> <hl7_storage_acct> <program_storage_acct", "program_container")
+    print("Pass appropriate params: <data_stream_id> <route> <hl7_storage_acct> <program_storage_acct", "program_container")
     exit()
 
 dest_id = sys.argv[1]
@@ -24,33 +24,28 @@ programContainer = sys.argv[5]
 
 container.upsert_item({
     "id": dest_id + '-' + event,
-    "destination_id": dest_id,
-    "event": event,
+    "data_stream_id": dest_id,
+    "data_stream_route": event,
     "routes": [
         {
             "destination_storage_account": hl7SA,
             "destination_container": "hl7ingress",
-            "destination_folder": "dex-routing",
-            "metadata": {
-                "reporting_jurisdiction": "unknown"
-            }
+            "destination_folder": "dex-routing"
         }]
 })
 
-hl7Outputs = ["recdeb", "redaction_report", "validation_report", "hl7_json", "lake_segs", "binary"]
+if (event.startswith('hl7')):
+    hl7Outputs = ["recdeb", "redacted", "validation_report", "json", "lake_seg", "binary"]
 
-for item in hl7Outputs:
-    container.upsert_item({
-        "id": dest_id + '-' + item,
-        "destination_id": dest_id,
-        "event": item,
-        "routes": [
-            {
-                "destination_storage_account": programSA,
-                "destination_container": programContainer,
-                "destination_folder": "hl7_" + item + "/:y/:m/:d/:/h",
-                "metadata": {
-                    "reporting_jurisdiction": "unknown"
-                }
-            }]
-    })
+    for item in hl7Outputs:
+        container.upsert_item({
+            "id": dest_id + '-hl7_out_' + item,
+            "data_stream_id": dest_id,
+            "data_stream_route": "hl7_out_" + item,
+            "routes": [
+                {
+                    "destination_storage_account": programSA,
+                    "destination_container": programContainer,
+                    "destination_folder": "hl7_out_" + item + "/:y/:m/:d/"
+                }]
+        })
