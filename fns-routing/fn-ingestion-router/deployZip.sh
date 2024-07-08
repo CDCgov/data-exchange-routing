@@ -12,7 +12,7 @@ else
 	function_name="routing-processor-$env"
 fi
 
-function="routing-processor-$env"
+function="routing-processor"
 base_name=az-fun-hl7-$function.zip
 
 
