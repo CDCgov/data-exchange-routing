@@ -8,7 +8,7 @@
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <functionAppName>routing-processor-${environment-id}</functionAppName>
+        <functionAppName>routing-processor</functionAppName>
         <java.version>17</java.version>
         <kotlin.version>1.9.0</kotlin.version>
         <azure.functions.maven.plugin.version>1.32.0</azure.functions.maven.plugin.version>
