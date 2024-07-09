@@ -8,10 +8,9 @@
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
         <subscriptionID>01f9b1b1-a130-4031-ba25-71771007d3ca</subscriptionID>
-        <environment-id>dev</environment-id> 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <functionAppName>routing-processor</functionAppName>
-        <java.version>17</java.version>
+        <java.version>11</java.version>
         <kotlin.version>1.9.0</kotlin.version>
         <azure.functions.maven.plugin.version>1.32.0</azure.functions.maven.plugin.version>
         <azure.functions.java.library.version>3.0.0</azure.functions.java.library.version>
@@ -144,14 +143,14 @@
                 <configuration>
                     <!-- https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details -->
                     <appName>${functionAppName}</appName>
-                    <resourceGroup>ocio-ede-${environment-id}-moderate-routing-rg</resourceGroup>
-                    <appServicePlanName>ocio-ede-${environment-id}-routing-service-plan</appServicePlanName>
+                    <resourceGroup>ocio-ede-dev-moderate-routing-rg</resourceGroup>
+                    <appServicePlanName>ocio-ede-dev-routing-service-plan</appServicePlanName>
                     <subscriptionId>${subscriptionID}</subscriptionId>
                     <region>${functionRegion}</region>
-                    <auth>
+                    <!-- <auth>
                         <type>service_principal</type>
                         <serverId>azure-service-principal</serverId>
-                    </auth>
+                    </auth> -->
                     <runtime>
                         <os>linux</os>
                         <javaVersion>${java.version}</javaVersion>
