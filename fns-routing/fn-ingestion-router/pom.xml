@@ -3,12 +3,12 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gov.cdc.dataexchange.router</groupId>
     <artifactId>fns-ingestion-router</artifactId>
-    <version>0.0.46-SNAPSHOT</version>
+    <version>0.0.48-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <functionAppName>routing-processor-${environment-id}</functionAppName>
+        <functionAppName>routing-processor</functionAppName>
         <java.version>17</java.version>
         <kotlin.version>1.9.0</kotlin.version>
         <azure.functions.maven.plugin.version>1.32.0</azure.functions.maven.plugin.version>
@@ -73,6 +73,10 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-identity</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-security-keyvault-secrets</artifactId>
         </dependency>
         <!-- Misc -->
         <dependency>

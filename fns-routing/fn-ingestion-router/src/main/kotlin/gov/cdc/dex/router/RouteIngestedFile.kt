@@ -2,8 +2,11 @@ package gov.cdc.dex.router
 
 import com.azure.core.amqp.AmqpTransportType
 import com.azure.identity.ClientSecretCredentialBuilder
+import com.azure.identity.ManagedIdentityCredentialBuilder
 import com.azure.messaging.servicebus.ServiceBusClientBuilder
 import com.azure.messaging.servicebus.ServiceBusMessage
+import com.azure.security.keyvault.secrets.SecretClient
+import com.azure.security.keyvault.secrets.SecretClientBuilder
 import com.azure.storage.blob.BlobClient
 import com.azure.storage.blob.BlobClientBuilder
 import com.azure.storage.blob.models.BlobRange
@@ -22,6 +25,7 @@ class RouteIngestedFile {
     companion object {
         const val ROUTE_MSG = "DEX::Routing:"
 
+        // processing status
         private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
         private val sBusQueueName = System.getenv("ServiceBusQueue")
@@ -34,20 +38,38 @@ class RouteIngestedFile {
                 .buildAsyncClient()
         }
 
-        // cosmos db
-        val cosmosDBConfig = CosmosDBConfig()
-        val sourceSAConfig = SourceSAConfig()
+        // cosmos db config
+        private val cosmosDBConfig = CosmosDBConfig()
 
-        // settings for big blobs
-        // blob is considered big, if above this size
-        val bigBlobSize = (System.getenv("BigBlobSizeMiB")?:"50").toInt()*1024*1024
-        val blobChunkSize = (System.getenv("BlobChunkSizeMiB")?:"2").toLong()*1024*1024
+        // source storage account config
+        private val sourceSAConfig = SourceSAConfig()
 
         // read cache for cosmos db configurations
         val cache = ConfigCache(
-                (System.getenv("CosmosDBCacheExpireHr")?:"24").toLong()*60*60*1000
-         )
+            (System.getenv("CosmosDBCacheExpireHr")?:"24").toLong()*60*60*1000
+        )
 
+        // settings for big blobs copy, blob is considered big, if above this size
+        val bigBlobSize = (System.getenv("BigBlobSizeMiB")?:"50").toInt()*1024*1024
+        val blobChunkSize = (System.getenv("BlobChunkSizeMiB")?:"2").toLong()*1024*1024
+
+        // key vault
+        private val vaultUrl = System.getenv("KeyVaultUrl")?:""
+        private val  managedIdentityClientId = System.getenv("ManagedIdentityClientId")?:""
+        private val vSecretClient: SecretClient? =
+            if ( vaultUrl.isNotEmpty() && managedIdentityClientId.isNotEmpty()) {
+                SecretClientBuilder()
+                    .vaultUrl(vaultUrl)
+                    .credential(
+                        ManagedIdentityCredentialBuilder()
+                            .clientId(managedIdentityClientId)
+                            .build()
+                    )
+                    .buildClient()
+            }
+            else {
+                null
+            }
     }
 
     @FunctionName("RouteIngestedFile")
@@ -64,6 +86,7 @@ class RouteIngestedFile {
         val start = System.currentTimeMillis()
         cache.clearIfExpired(start)
 
+        context.logger.info("$ROUTE_MSG BIG BLOB SIZE: ${bigBlobSize}")
         try {
             val routeContext = RouteContext(msg, context.logger)
             pipe(
@@ -97,7 +120,7 @@ class RouteIngestedFile {
             }
             blobSize = blobProperties?.blobSize ?:0L
 
-            val dexIngestDateTime = sourceMetadata.get("dex_ingest_datetime")
+            val dexIngestDateTime = sourceMetadata["dex_ingest_datetime"]
             creationTimeUTC = dexIngestDateTime?:blobProperties?.creationTime?.toString() ?: ""
 
             val routeMeta = with(sourceMetadata) {
@@ -132,26 +155,26 @@ class RouteIngestedFile {
             val config  =  getRouteConfig( dataStreamId, dataStreamRoute)
             config?.routes?.forEach { route->
                 // get connection string and sas token for this route
-                val cachedAccount = getStorageConfig(route.destination_storage_account)
+                val cachedAccount = getStorageConfig(route.destinationStorageAccount)
                 if (cachedAccount != null) {
                     route.isValid = true
                     route.sas = cachedAccount.sas
-                    route.connectionString = cachedAccount.connection_string
-                    route.tenantId = cachedAccount.tenant_id
-                    route.clientId = cachedAccount.client_id
+                    route.connectionString = cachedAccount.connectionString
+                    route.tenantId = cachedAccount.tenantId
+                    route.clientId = cachedAccount.clientId
                     route.secret = cachedAccount.secret
 
-                    route.destinationPath =  if (route.destination_folder == "")
+                    route.destinationPath =  if (route.destinationFolder == "")
                         "."
                     else
-                        foldersToPath(this, route.destination_folder.split("/", "\\"))
+                        foldersToPath(this, route.destinationFolder.split("/", "\\"))
 
                     if (route.destinationPath.isNotEmpty()) {
                         route.destinationPath += "/"
                     }
                 } else {
                     route.isValid = false
-                    stopRouteProcessing(this, "No storage account found for ${route.destination_storage_account} for $sourceUrl")
+                    stopRouteProcessing(this, "No storage account found for ${route.destinationStorageAccount} for $sourceUrl")
                 }
             }
             if ( config == null) {
@@ -194,7 +217,7 @@ class RouteIngestedFile {
                     route.secret.isNotEmpty()) {
 
                     BlobClientBuilder()
-                        .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
+                        .endpoint("https://${route.destinationStorageAccount}.blob.core.windows.net")
                         .credential(
                             ClientSecretCredentialBuilder()
                                 .tenantId(route.tenantId)
@@ -202,27 +225,29 @@ class RouteIngestedFile {
                                 .clientSecret(route.secret)
                                 .build()
                         )
-                        .containerName(route.destination_container)
+                        .containerName(route.destinationContainer)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
                 }
                 else if (route.connectionString.isNotEmpty())
                     BlobClientBuilder()
                         .connectionString(route.connectionString)
-                        .containerName(route.destination_container)
+                        .containerName(route.destinationContainer)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
                 else  if (route.sas.isNotEmpty()) {
                     BlobClientBuilder()
-                        .endpoint("https://${route.destination_storage_account}.blob.core.windows.net")
+                        .endpoint("https://${route.destinationStorageAccount}.blob.core.windows.net")
                         .sasToken(route.sas)
-                        .containerName(route.destination_container)
+                        .containerName(route.destinationContainer)
                         .blobName("${route.destinationPath}${destinationFileName}")
                         .buildClient()
                 }
                 else {
                     throw Exception("Misconfigured storage-account")
                 }
+
+                logger.info("BLOB SIZE:$blobSize) VS BIG BLOB SIZE: ${bigBlobSize}")
 
                 if (blobSize <= bigBlobSize) {
                     sourceBlob.openInputStream().use { stream->
@@ -255,7 +280,7 @@ class RouteIngestedFile {
                         uploadId, dataStreamId, dataStreamRoute,
                         content = SchemaContent.successSchema(
                             sourceBlobUrl = sourceUrl,
-                            destinationBlobUrl = "https://${route.destination_storage_account}.blob.core.windows.net/${route.destination_container}/${route.destinationPath}${destinationFileName}",
+                            destinationBlobUrl = "https://${route.destinationStorageAccount}.blob.core.windows.net/${route.destinationContainer}/${route.destinationPath}${destinationFileName}",
                         )
                     )
                     sendReport(context, processingStatus)
@@ -372,13 +397,18 @@ class RouteIngestedFile {
     private fun getStorageConfig(saAccount:String):StorageAccountConfig? {
         var config = cache.storageCache[saAccount]
         if (config == null ||
-            ((config.tenant_id.isEmpty() ||
-                config.client_id.isEmpty() ||
+            ((config.tenantId.isEmpty() ||
+                    config.clientId.isEmpty() ||
                     config.secret.isEmpty()) &&
-            config.connection_string.isEmpty() &&
-            config.sas.isEmpty())) {
+                    config.connectionString.isEmpty() &&
+                    config.sas.isEmpty())) {
 
-            config = cosmosDBConfig.readStorageAccountConfig(saAccount)
+            config = if (vSecretClient != null) {
+                gson.fromJson(vSecretClient.getSecret(saAccount).value, StorageAccountConfig::class.java)
+            }
+            else {
+                cosmosDBConfig.readStorageAccountConfig(saAccount)
+            }
             if ( config != null) {
                 cache.storageCache[saAccount] = config
             }
@@ -406,7 +436,7 @@ class RouteIngestedFile {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun copyBlob(logger:java.util.logging.Logger, sourceBlob: BlobClient, blobSize: Long, destinationBlob: BlockBlobClient, metadata:MutableMap<String,String>) {
-
+        logger.info("IN COPY BLOB")
         withContext(Dispatchers.IO) {
             val totalBytesRead = AtomicLong(0L)
             val totalBytesSent = AtomicLong(0L)
