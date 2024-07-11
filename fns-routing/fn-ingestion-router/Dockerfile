@@ -14,7 +14,7 @@ RUN chown -R dexuser /home/site/wwwroot
 ARG function_name
 EXPOSE 8080
 # run as dexuser
-USER dexuser
+# USER dexuser
 
 # static environment variables
 ENV ASPNETCORE_URLS=http://*:8080
