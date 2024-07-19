@@ -42,7 +42,7 @@ jobs:
       id: manual-devops-wkflow-dispatch
       uses: aurelien-baudet/workflow-dispatch@v2.1.1
       with:
-        workflow: build-routing-processor-container.yml'
+        workflow: build-routing-processor-container.yml
         repo: cdcent/data-exchange-routing-devops
         token: ${{ env.access_token }}
         inputs: '{ "REF": "${{ github.head_ref || github.ref_name }}" }'
