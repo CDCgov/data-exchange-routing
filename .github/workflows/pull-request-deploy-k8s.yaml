@@ -46,7 +46,7 @@ jobs:
         repo: cdcent/data-exchange-routing-devops
         token: ${{ env.access_token }}
         inputs: '{ "REF": "${{ github.head_ref || github.ref_name }}" }'
-        # ref: 'main'
+        ref: '${{ github.sha }}'
         wait-for-completion: true
         wait-for-completion-timeout: 120m
         wait-for-completion-interval: 300s
