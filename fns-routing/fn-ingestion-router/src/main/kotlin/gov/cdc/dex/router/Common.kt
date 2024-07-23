@@ -14,6 +14,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
 import java.net.URI
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 data class ConfigCache(val intervalMillis:Long) {
@@ -246,6 +247,17 @@ fun foldersToPath(context:RouteContext, folders:List<String>): String {
     }
     return path.filter { it.isNotEmpty() }
         .joinToString("/")
+}
+
+fun getAppVersion(): String {
+    val properties = Properties()
+    val inputStream = ClassLoader.getSystemResourceAsStream("META-INF/maven/gov.cdc.dataexchange.router/fns-ingestion-router/pom.properties")
+
+    if (inputStream != null) {
+        properties.load(inputStream)
+        return properties.getProperty("version")
+    }
+    return "unknown"
 }
 
 
