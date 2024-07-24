@@ -1,5 +1,7 @@
 package gov.cdc.dex.router
 
+import com.azure.core.http.policy.HttpLogDetailLevel
+import com.azure.core.http.policy.HttpLogOptions
 import com.azure.cosmos.ConsistencyLevel
 import com.azure.cosmos.CosmosClientBuilder
 import com.azure.cosmos.CosmosException
@@ -155,7 +157,7 @@ class CosmosDBConfig {
     companion object {
         private val cosmosEndpoint = System.getenv("CosmosDBUri")
         private val cosmosKey = System.getenv("CosmosDBKey")
-        private val cosmosRegion = System.getenv("CosmosDBRegion")
+        private val cosmosRegion = System.getenv("CosmosDBRegion")?:"eastus"
         private val databaseName = System.getenv("CosmosDBId")
         private val storageContainerName = System.getenv("CosmosDBStorageContainer")
         private val routeContainerName = System.getenv("CosmosDBRouteContainer")
@@ -165,7 +167,7 @@ class CosmosDBConfig {
             .key(cosmosKey)
             .consistencyLevel(ConsistencyLevel.EVENTUAL)
             .preferredRegions(listOf(cosmosRegion))
-            .directMode()
+            .gatewayMode()
             .buildClient()
 
         private val database = cosmosClient.getDatabase(databaseName)
