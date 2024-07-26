@@ -27,14 +27,13 @@ class RouteIngestedFile {
         // processing status
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
         private val sBusQueueName = System.getenv("ServiceBusQueue")
-        private val sbBusTopicName = "topic-name"
+        private const val sbBusTopicName = "processing-status-cosmos-db-report-sink-topics"
         private val sBusClient by lazy {
             ServiceBusClientBuilder()
                 .connectionString(sBusConnectionString)
                 .transportType(AmqpTransportType.AMQP_WEB_SOCKETS)
                 .sender()
-//                .topicName(sbBusTopicName)
-                .queueName(sBusQueueName)
+                .topicName(sbBusTopicName)
                 .buildAsyncClient()
         }
 
