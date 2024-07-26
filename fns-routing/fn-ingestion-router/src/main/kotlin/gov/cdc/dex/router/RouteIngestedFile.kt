@@ -12,7 +12,6 @@ import com.azure.storage.blob.BlobClientBuilder
 import com.azure.storage.blob.models.BlobRange
 import com.azure.storage.blob.models.BlobRequestConditions
 import com.azure.storage.blob.specialized.BlockBlobClient
-import com.github.kittinunf.fuel.httpPut
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
 import kotlinx.coroutines.*
@@ -26,14 +25,15 @@ class RouteIngestedFile {
         const val ROUTE_MSG = "DEX::Routing:"
 
         // processing status
-        private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
         private val sBusQueueName = System.getenv("ServiceBusQueue")
+        private val sbBusTopicName = "topic-name"
         private val sBusClient by lazy {
             ServiceBusClientBuilder()
                 .connectionString(sBusConnectionString)
                 .transportType(AmqpTransportType.AMQP_WEB_SOCKETS)
                 .sender()
+//                .topicName(sbBusTopicName)
                 .queueName(sBusQueueName)
                 .buildAsyncClient()
         }
@@ -139,8 +139,6 @@ class RouteIngestedFile {
             traceId = sourceMetadata.getOrDefault("trace_id", "")
             parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
             uploadId = sourceMetadata.getOrDefault("upload_id", UUID.randomUUID().toString())
-
-            startTrace(this)
 
             if ( dataStreamId.isEmpty() || dataStreamRoute.isEmpty() ) {
                 // the file cannot be processed without dataStreamId or dataStreamRoute
@@ -306,7 +304,6 @@ class RouteIngestedFile {
                     sendReport(context, psReportEnvelope)
                 }
             }
-            stopTrace(this)
         }
 
     private fun routeDeadLetter(context:RouteContext) =
@@ -331,35 +328,6 @@ class RouteIngestedFile {
                 logger.info("copied in ${System.currentTimeMillis() - start}ms")
             }
         }
-
-    private fun startTrace(context:RouteContext) =
-        if (apiURL != null ) {
-            with(context) {
-                childSpanId = if (traceId.isNotEmpty() && parentSpanId.isNotEmpty()) {
-                    val url = "$apiURL/trace/startSpan/$traceId/$parentSpanId?stageName=dex-routing"
-                    val (_, _, result) = url
-                        .httpPut()
-                        .responseString()
-                    val (payload, _) = result
-                    val trace = gson.fromJson(payload, Trace::class.java)
-                    trace.spanId
-                } else {
-                    ""
-                }
-            }
-        }
-        else {}
-
-    private fun stopTrace(context:RouteContext) =
-        if (apiURL != null ) {
-            with (context) {
-                if (traceId.isNotEmpty() && isChildSpanInitialized) {
-                    val url = "$apiURL/trace/stopSpan/$traceId/$childSpanId"
-                    url.httpPut().responseString()
-                }
-            }
-        }
-        else {}
 
     private fun stopRouteProcessing(context:RouteContext, error:String) {
         with (context) {
@@ -437,7 +405,6 @@ class RouteIngestedFile {
                 sendReport(context, psReportEnvelope)
             }
         }
-        stopTrace(context)
     }
 
     private fun sendReport(context:RouteContext, psReportEnvelope:PSReportEnvelope) =
