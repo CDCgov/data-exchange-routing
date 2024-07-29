@@ -12,7 +12,6 @@ import com.azure.storage.blob.BlobClientBuilder
 import com.azure.storage.blob.models.BlobRange
 import com.azure.storage.blob.models.BlobRequestConditions
 import com.azure.storage.blob.specialized.BlockBlobClient
-import com.github.kittinunf.fuel.httpPut
 import com.microsoft.azure.functions.ExecutionContext
 import com.microsoft.azure.functions.annotation.*
 import kotlinx.coroutines.*
@@ -26,15 +25,15 @@ class RouteIngestedFile {
         const val ROUTE_MSG = "DEX::Routing:"
 
         // processing status
-        private val apiURL = System.getenv("ProcessingStatusAPIBaseURL")
         private val sBusConnectionString = System.getenv("ServiceBusConnectionString")
         private val sBusQueueName = System.getenv("ServiceBusQueue")
+        private const val sbBusTopicName = "processing-status-cosmos-db-report-sink-topics"
         private val sBusClient by lazy {
             ServiceBusClientBuilder()
                 .connectionString(sBusConnectionString)
                 .transportType(AmqpTransportType.AMQP_WEB_SOCKETS)
                 .sender()
-                .queueName(sBusQueueName)
+                .topicName(sbBusTopicName)
                 .buildAsyncClient()
         }
 
@@ -139,8 +138,6 @@ class RouteIngestedFile {
             traceId = sourceMetadata.getOrDefault("trace_id", "")
             parentSpanId = sourceMetadata.getOrDefault("parent_span_id", "")
             uploadId = sourceMetadata.getOrDefault("upload_id", UUID.randomUUID().toString())
-
-            startTrace(this)
 
             if ( dataStreamId.isEmpty() || dataStreamRoute.isEmpty() ) {
                 // the file cannot be processed without dataStreamId or dataStreamRoute
@@ -276,17 +273,36 @@ class RouteIngestedFile {
                 if (!route.isValid) return@forEach
                 sBusQueueName?.let {
                     val destinationFileName = sourceFileName.split("/").last()
-                    val processingStatus = ProcessingSchema(
-                        uploadId, dataStreamId, dataStreamRoute,
-                        content = SchemaContent.successSchema(
-                            sourceBlobUrl = sourceUrl,
-                            destinationBlobUrl = "https://${route.destinationStorageAccount}.blob.core.windows.net/${route.destinationContainer}/${route.destinationPath}${destinationFileName}",
-                        )
+                    val userId = sourceMetadata["user_id"]
+                    val senderId = sourceMetadata.getOrDefault("sender_id", "dex-routing")
+                    val dataProducer = sourceMetadata["data_producer_id"]
+                    val stageInfo = StageInfo(
+                        status = StageStatus.SUCCESS,
+                        issues = null,
+                        startProcessingTime = creationTimeUTC,
+                        endProcessingTime = creationTimeUTC
                     )
-                    sendReport(context, processingStatus)
+                    val blobCopyReport = BlobFileCopy(
+                        srcUrl = sourceUrl,
+                        destUrl = "https://${route.destinationStorageAccount}.blob.core.windows.net/${route.destinationContainer}/${route.destinationPath}${destinationFileName}",
+                        timestamp = creationTimeUTC
+                    )
+                    val psReportEnvelope = PSReportEnvelope(
+                        uploadId = uploadId,
+                        userId = userId,
+                        dataStreamId = dataStreamId,
+                        dataStreamRoute = dataStreamRoute,
+                        jurisdiction = null,
+                        senderId = senderId,
+                        dataProducerId = dataProducer,
+                        dexIngestTimestamp = creationTimeUTC,
+                        messageMetadata = null,
+                        stageInfo = stageInfo,
+                        content = blobCopyReport
+                    )
+                    sendReport(context, psReportEnvelope)
                 }
             }
-            stopTrace(this)
         }
 
     private fun routeDeadLetter(context:RouteContext) =
@@ -312,50 +328,41 @@ class RouteIngestedFile {
             }
         }
 
-    private fun startTrace(context:RouteContext) =
-        if (apiURL != null ) {
-            with(context) {
-                childSpanId = if (traceId.isNotEmpty() && parentSpanId.isNotEmpty()) {
-                    val url = "$apiURL/trace/startSpan/$traceId/$parentSpanId?stageName=dex-routing"
-                    val (_, _, result) = url
-                        .httpPut()
-                        .responseString()
-                    val (payload, _) = result
-                    val trace = gson.fromJson(payload, Trace::class.java)
-                    trace.spanId
-                } else {
-                    ""
-                }
-            }
-        }
-        else {}
-
-    private fun stopTrace(context:RouteContext) =
-        if (apiURL != null ) {
-            with (context) {
-                if (traceId.isNotEmpty() && isChildSpanInitialized) {
-                    val url = "$apiURL/trace/stopSpan/$traceId/$childSpanId"
-                    url.httpPut().responseString()
-                }
-            }
-        }
-        else {}
-
     private fun stopRouteProcessing(context:RouteContext, error:String) {
         with (context) {
             logger.severe("$ROUTE_MSG ERROR: $error")
             routeDeadLetter(context)
 
             sBusQueueName?.let {
-                val processingStatus = ProcessingSchema(
-                    uploadId, dataStreamId, dataStreamRoute,
-                    content = SchemaContent.errorSchema(
-                        sourceBlobUrl = sourceUrl,
-                        destinationBlobUrl = "unknown",
-                        error = error
-                    )
+                val userId = sourceMetadata["user_id"]
+                val senderId = sourceMetadata.getOrDefault("sender_id", "dex-routing")
+                val dataProducer = sourceMetadata["data_producer_id"]
+                val issues = listOf(Issue(IssueLevel.ERROR, error))
+                val stageInfo = StageInfo(
+                    status = StageStatus.FAILURE,
+                    issues = issues,
+                    startProcessingTime = creationTimeUTC,
+                    endProcessingTime = creationTimeUTC
                 )
-                sendReport(context, processingStatus)
+                val blobCopyReport = BlobFileCopy(
+                    srcUrl = sourceUrl,
+                    destUrl = null,
+                    timestamp = creationTimeUTC
+                )
+                val psReportEnvelope = PSReportEnvelope(
+                    uploadId = uploadId,
+                    userId = userId,
+                    dataStreamId = dataStreamId,
+                    dataStreamRoute = dataStreamRoute,
+                    jurisdiction = null,
+                    senderId = senderId,
+                    dataProducerId = dataProducer,
+                    dexIngestTimestamp = creationTimeUTC,
+                    messageMetadata = null,
+                    stageInfo = stageInfo,
+                    content = blobCopyReport
+                )
+                sendReport(context, psReportEnvelope)
             }
         }
     }
@@ -366,29 +373,55 @@ class RouteIngestedFile {
 
         with (context) {
             sBusQueueName?.let {
-                val processingStatus = ProcessingSchema(
-                    uploadId, dataStreamId, dataStreamRoute,
-                    content = SchemaContent.errorSchema(
-                        sourceBlobUrl = sourceUrl,
-                        destinationBlobUrl = "unknown",
-                        error = error
-                    )
+                val userId = sourceMetadata["user_id"]
+                val senderId = sourceMetadata.getOrDefault("sender_id", "dex-routing")
+                val dataProducer = sourceMetadata["data_producer_id"]
+                val issues = listOf(Issue(IssueLevel.ERROR, error))
+                val stageInfo = StageInfo(
+                    status = StageStatus.FAILURE,
+                    issues = issues,
+                    startProcessingTime = creationTimeUTC,
+                    endProcessingTime = creationTimeUTC
                 )
-                sendReport(context, processingStatus)
+                val blobCopyReport = BlobFileCopy(
+                    srcUrl = sourceUrl,
+                    destUrl = null,
+                    timestamp = creationTimeUTC
+                )
+                val psReportEnvelope = PSReportEnvelope(
+                    uploadId = uploadId,
+                    userId = userId,
+                    dataStreamId = dataStreamId,
+                    dataStreamRoute = dataStreamRoute,
+                    jurisdiction = null,
+                    senderId = senderId,
+                    dataProducerId = dataProducer,
+                    dexIngestTimestamp = creationTimeUTC,
+                    messageMetadata = null,
+                    stageInfo = stageInfo,
+                    content = blobCopyReport
+                )
+                sendReport(context, psReportEnvelope)
             }
         }
-        stopTrace(context)
     }
 
-    private fun sendReport(context:RouteContext, processingStatus:ProcessingSchema) =
+    private fun sendReport(context:RouteContext, psReportEnvelope:PSReportEnvelope) =
         with (context) {
-            val msg = gson.toJson(processingStatus)
+            val msg = gson.toJson(psReportEnvelope)
             sBusClient.sendMessage(ServiceBusMessage(msg))
                 .subscribe(
-                    {}, { e ->
+                    {
+                        logger.info(
+                            "$ROUTE_MSG SUCCESS: Message sent to Service Bus successfully.\n" +
+                                    "upload_id: ${psReportEnvelope.uploadId}\n" +
+                                    "ps report: $msg"
+                        )
+                    },
+                    { e ->
                         logger.severe(
                             "$ROUTE_MSG ERROR: Sending message to Service Bus: ${e.message}\n" +
-                                    "upload_id: ${processingStatus.uploadId}"
+                                    "upload_id: ${psReportEnvelope.uploadId}"
                         )
                     }
                 )

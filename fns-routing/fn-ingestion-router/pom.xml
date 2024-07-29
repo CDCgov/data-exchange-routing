@@ -80,26 +80,6 @@
         </dependency>
         <!-- Misc -->
         <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel-gson</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel-rxjava</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel-coroutines</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
@@ -150,10 +130,10 @@
                     <appServicePlanName>ocio-ede-${environment-id}-routing-service-plan</appServicePlanName>
                     <subscriptionId>${subscriptionID}</subscriptionId>
                     <region>${functionRegion}</region>
-                    <auth>
-                        <type>service_principal</type>
-                        <serverId>azure-service-principal</serverId>
-                    </auth>
+<!--                    <auth>-->
+<!--                        <type>service_principal</type>-->
+<!--                        <serverId>azure-service-principal</serverId>-->
+<!--                    </auth>-->
                     <runtime>
                         <os>linux</os>
                         <javaVersion>${java.version}</javaVersion>
