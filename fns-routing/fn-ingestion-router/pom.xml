@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>gov.cdc.dataexchange.router</groupId>
     <artifactId>fns-ingestion-router</artifactId>
-    <version>0.0.48-SNAPSHOT</version>
+    <version>0.0.50-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>DEX Fns-Router-Pipeline</name>
     <properties>
@@ -79,26 +79,6 @@
             <artifactId>azure-security-keyvault-secrets</artifactId>
         </dependency>
         <!-- Misc -->
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel-gson</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel-rxjava</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.kittinunf.fuel</groupId>
-            <artifactId>fuel-coroutines</artifactId>
-            <version>${fuel.version}</version>
-        </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>

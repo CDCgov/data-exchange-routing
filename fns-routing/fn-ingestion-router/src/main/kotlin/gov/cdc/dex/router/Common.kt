@@ -1,5 +1,7 @@
 package gov.cdc.dex.router
 
+import com.azure.core.http.policy.HttpLogDetailLevel
+import com.azure.core.http.policy.HttpLogOptions
 import com.azure.cosmos.ConsistencyLevel
 import com.azure.cosmos.CosmosClientBuilder
 import com.azure.cosmos.CosmosException
@@ -12,6 +14,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
 import java.net.URI
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 data class ConfigCache(val intervalMillis:Long) {
@@ -155,7 +158,7 @@ class CosmosDBConfig {
     companion object {
         private val cosmosEndpoint = System.getenv("CosmosDBUri")
         private val cosmosKey = System.getenv("CosmosDBKey")
-        private val cosmosRegion = System.getenv("CosmosDBRegion")
+        private val cosmosRegion = System.getenv("CosmosDBRegion")?:"eastus"
         private val databaseName = System.getenv("CosmosDBId")
         private val storageContainerName = System.getenv("CosmosDBStorageContainer")
         private val routeContainerName = System.getenv("CosmosDBRouteContainer")
@@ -165,7 +168,7 @@ class CosmosDBConfig {
             .key(cosmosKey)
             .consistencyLevel(ConsistencyLevel.EVENTUAL)
             .preferredRegions(listOf(cosmosRegion))
-            .directMode()
+            .gatewayMode()
             .buildClient()
 
         private val database = cosmosClient.getDatabase(databaseName)
@@ -244,6 +247,17 @@ fun foldersToPath(context:RouteContext, folders:List<String>): String {
     }
     return path.filter { it.isNotEmpty() }
         .joinToString("/")
+}
+
+fun getAppVersion(): String {
+    val properties = Properties()
+    val inputStream = ClassLoader.getSystemResourceAsStream("META-INF/maven/gov.cdc.dataexchange.router/fns-ingestion-router/pom.properties")
+
+    if (inputStream != null) {
+        properties.load(inputStream)
+        return properties.getProperty("version")
+    }
+    return "unknown"
 }
 
 
