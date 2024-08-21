@@ -6,7 +6,8 @@ defaults:
 
 on:
   push:
-    branches: [RS-490]
+    branches: 
+      - develop
 
   # pull_request: 
   #   types: [opened, reopened, synchronize]
