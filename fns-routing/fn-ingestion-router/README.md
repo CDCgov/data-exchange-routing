@@ -5,11 +5,12 @@ The destination storage account is defined by the data-stream-id and data-stream
 The details of the destination storage account are retrieved from a CosmosDB, see below the containers structure.  
 The implemented architecture connects the source storage queue as Endpoint through Event Grid/System Topic/ Blob Created event type.   
 The function runs when messages are added (blobs dropped in the source storage) to the configured storage queue.
-
+   
+    
+## CosmosDB
 Both containers for the routing configurations are using the id property as a Partition key: \id.
 
-## dex-routing cosmos db
-### routing-config container:
+### routing-config container:  
 
 The tags :y, :m :d :h are substituted with the current year, day, month and hour when the destination
 folder name is constructed
@@ -22,17 +23,14 @@ folder name is constructed
         {
             "destination_storage_account": "[storage-account id]",
             "destination_container": "...",
-            "destination_folder": "[folders/.../:y/:m/:d/:h",
-            "metadata": {
-                "key": "value"
-                 ...
-            }
+            "destination_folder": "[folders/.../:y/:m/:d/:h"
         }
     ]
 }
 ```  
-### storage-account container:
-This container supports destination storage account defined by connection string, sas token or service principal credentials
+### storage-account container:  
+
+This container supports destination storage accounts defined by connection string, sas token or service principal credentials
 
 ``` json   
 {
@@ -51,6 +49,6 @@ This container supports destination storage account defined by connection string
     "id": "[destination-storage-account from route-config]",
     "tenant_id": "...",
     "client_id": "...",
-    "secret": "...",
+    "secret": "..."
 }
 ```  
