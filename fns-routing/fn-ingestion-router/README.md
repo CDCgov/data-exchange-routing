@@ -1,3 +1,6 @@
+
+**Note:** This repo will be archived and no longer will be updated.
+
 ## Router Function for the DEX Pipeline
 
 This function routes blobs dropped in a source storage account to a destination storage account.   
